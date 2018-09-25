@@ -155,8 +155,8 @@ def sun360h_data_load(part='train', ver=0, batch=1):
             with open(root_path + task_path + gt_list[j][0] + '.json', 'r') as f:
                 names = json.load(f)
                 a_bacth.append(root_path + imgs_path + names[0])
-                p_batch.append(root_path + imgs_path + names[gt_list[j][1]])
-                n_batch.append(root_path + imgs_path + names[[k for k in range(10) if k!=names[gt_list[j][1]]][np.random.randint(9)]])
+                p_batch.append(root_path + imgs_path + names[int(gt_list[j][1])])
+                n_batch.append(root_path + imgs_path + names[[k for k in range(10) if k!=int(gt_list[j][1])][np.random.randint(9)]])
         result.append([a_bacth, p_batch, n_batch])
 
     return result
