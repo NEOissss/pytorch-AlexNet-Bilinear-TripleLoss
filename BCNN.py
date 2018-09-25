@@ -75,9 +75,10 @@ class BilinearAlexManager(object):
             epoch_loss = []
             num_correct = 0
             num_total = 0
+            iter_num = 0
             for a, p, n in self._data_loader():
                 # Data.
-                A, P, N = slef._image_loader(a, p, n)
+                A, P, N = self._image_loader(a, p, n)
                 # Clear the existing gradients.
                 self._solver.zero_grad()
                 # Forward pass.
@@ -89,7 +90,8 @@ class BilinearAlexManager(object):
                 # Backward pass.
                 loss.backward()
                 self._solver.step()
-            if t%1 == 0:
+                iter_num += 1
+            if iter_num%50 == 0:
                 print('Triplet loss ', epoch_loss[-1])
         self._save()
 
