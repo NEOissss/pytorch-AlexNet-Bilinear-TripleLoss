@@ -1,12 +1,13 @@
 import csv
 import json
+from datetime import datetime
 import numpy as np
 from scipy import misc
 import torch
 import torchvision.models as models
 
 class BilinearAlex(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, freeze=True):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features
         bfc_list = list(models.alexnet().classifier.children())[:-1]
@@ -15,11 +16,12 @@ class BilinearAlex(torch.nn.Module):
         self.fc = torch.nn.Linear(512**2, 512)
 
         # Freeze all previous layers.
-        for param in self.features.parameters():
-            param.requires_grad = False
-        for layer in self.bfc[:-1]:
-            for param in layer.parameters():
+        if freeze:
+            for param in self.features.parameters():
                 param.requires_grad = False
+            for layer in self.bfc[:-1]:
+                for param in layer.parameters():
+                    param.requires_grad = False
 
         # Initialize the last bfc layers.
         torch.nn.init.kaiming_normal_(self.bfc[-1].weight.data)
@@ -48,18 +50,22 @@ class BilinearAlex(torch.nn.Module):
 
 
 class BilinearAlexManager(object):
-    def __init__(self):
+    def __init__(self, param_path = ''):
         self._net = torch.nn.DataParallel(BilinearAlex()).cuda()
         print(self._net)
         # Criterion.
         self._margin = 1.0
         self._criterion = torch.nn.TripletMarginLoss(margin = self._margin).cuda()
         # Solver.
-        self._solver = torch.optim.SGD(self._net.parameters(), momentum=0.9)
+        self._solver = torch.optim.SGD(self._net.parameters(), lr=0.001, momentum=0.9)
+        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
         # Batch size
         self._batch = 1
         # Epoch
         self._epoch = 1
+        # Load parameters
+        if param_path:
+            self._load(param_path)
 
     def train(self):
         """Train the network."""
@@ -84,7 +90,7 @@ class BilinearAlexManager(object):
                 self._solver.step()
             if t%1 == 0:
                 print('Triplet loss ', epoch_loss[-1])
-
+        self._save()
 
     def test(self):
         print('Testing.')
@@ -119,6 +125,14 @@ class BilinearAlexManager(object):
             n_numpy[i,:,:,:] = np.tanspose(misc.imresize(misc.imread(n[i]), size=(227,227,3)), (0,3,1,2))
         return torch.from_numpy(a_numpy), torch.from_numpy(p_numpy), torch.from_numpy(n_numpy)
 
+    def _save(self):
+        PATH = './bcnn-param-' + datetime.now().strftime('%Y%m%d%H%M%S')
+        torch.save(the_model.state_dict(), PATH)
+        print('Model parameters saved: ' + PATH)
+
+    def _load(self, PATH):
+        self._net.load_state_dict(torch.load(PATH))
+        print('Model parameters loaded: ' + PATH)
 
 def sun360h_data_load(part='train', ver=0, batch=1):
     root_path = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
