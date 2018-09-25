@@ -57,7 +57,7 @@ class BilinearAlexManager(object):
         self._margin = 1.0
         self._criterion = torch.nn.TripletMarginLoss(margin = self._margin).cuda()
         # Solver.
-        self._solver = torch.optim.SGD(self._net.parameters(), lr=0.001, momentum=0.9)
+        self._solver = torch.optim.SGD(filter(lambda p: p.requires_grad, self._net.parameters()), lr=0.001, momentum=0.9)
         self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
         # Batch size
         self._batch = 1
@@ -108,13 +108,13 @@ class BilinearAlexManager(object):
         print('Test accuracy ', num_correct/num_total)
 
 
-    def _data_loader(train=True):
+    def _data_loader(self, train=True):
         if train:
             return sun360h_data_load(part='train', batch=self._batch)
         else:
             return sun360h_data_load(part='test', batch=self._batch)
 
-    def _image_loader(a, p, n):
+    def _image_loader(self, a, p, n):
         n = len(a)
         a_numpy = np.ndarray([n, 3, 227, 227])
         p_numpy = np.ndarray([n, 3, 227, 227])
@@ -127,7 +127,7 @@ class BilinearAlexManager(object):
 
     def _save(self):
         PATH = './bcnn-param-' + datetime.now().strftime('%Y%m%d%H%M%S')
-        torch.save(the_model.state_dict(), PATH)
+        torch.save(self._net.state_dict(), PATH)
         print('Model parameters saved: ' + PATH)
 
     def _load(self, PATH):
