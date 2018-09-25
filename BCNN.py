@@ -1,3 +1,4 @@
+import csv
 import json
 import numpy as np
 from scipy import misc
@@ -120,8 +121,8 @@ class BilinearAlexManager(object):
 
 
 def sun360h_data_load(part='train', ver=0, batch=1):
-    root_path = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf'
-    imgs_path = '/IMGs'
+    root_path = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
+    imgs_path = '/IMGs/'
 
     if part=='train' or part=='test':
         task_path = 'task_' + part
@@ -130,12 +131,13 @@ def sun360h_data_load(part='train', ver=0, batch=1):
         raise ValueError('Unavailable dataset part!')
 
     if ver==0:
+        task_path += '/'
         gt_path += '.csv'
     elif ver==1:
-        task_path += '_v1'
+        task_path += '_v1/'
         gt_path += '_v1.csv'
     elif ver==2:
-        task_path += '_v2'
+        task_path += '_v2/'
         gt_path += '_v2.csv'
     else:
         raise ValueError('Unavailable dataset version!')
