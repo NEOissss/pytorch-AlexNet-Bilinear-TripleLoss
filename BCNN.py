@@ -158,3 +158,11 @@ def sun360h_data_load(part='train', ver=0, batch=1):
         result.append([a_bacth, p_batch, n_batch])
 
     return result
+
+def main():
+    bcnn = BilinearAlexManager()
+    bcnn.train()
+    bcnn.test()
+
+if __name__ == '__main__':
+    main()
