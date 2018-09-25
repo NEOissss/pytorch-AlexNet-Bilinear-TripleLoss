@@ -34,6 +34,7 @@ class BilinearAlex(torch.nn.Module):
             torch.nn.init.constant_(self.fc.bias.data, val=0)
 
     def forward(self, X):
+        X = X.float()
         N = X.size()[0]
         assert X.size() == (N, 3, 227, 227)
         X = self.features(X)
@@ -98,7 +99,7 @@ class BilinearAlexManager(object):
         num_total = 0
         for a, p, n in self._data_loader(train=False):
             # Data.
-            A, P, N = slef._image_loader(a, p, n)
+            A, P, N = self._image_loader(a, p, n)
             # Forward pass.
             feat_a = self._net(A).numpy()
             feat_p = self._net(P).numpy()
@@ -115,14 +116,14 @@ class BilinearAlexManager(object):
             return sun360h_data_load(part='test', batch=self._batch)
 
     def _image_loader(self, a, p, n):
-        n = len(a)
-        a_numpy = np.ndarray([n, 3, 227, 227])
-        p_numpy = np.ndarray([n, 3, 227, 227])
-        n_numpy = np.ndarray([n, 3, 227, 227])
-        for i in range(n):
-            a_numpy[i,:,:,:] = np.tanspose(misc.imresize(misc.imread(a[i]), size=(227,227,3)), (0,3,1,2))
-            p_numpy[i,:,:,:] = np.tanspose(misc.imresize(misc.imread(p[i]), size=(227,227,3)), (0,3,1,2))
-            n_numpy[i,:,:,:] = np.tanspose(misc.imresize(misc.imread(n[i]), size=(227,227,3)), (0,3,1,2))
+        k = len(a)
+        a_numpy = np.ndarray([k, 3, 227, 227])
+        p_numpy = np.ndarray([k, 3, 227, 227])
+        n_numpy = np.ndarray([k, 3, 227, 227])
+        for i in range(k):
+            a_numpy[i,:,:,:] = np.transpose(misc.imresize(misc.imread(a[i]), size=(227,227,3)), (2,0,1))
+            p_numpy[i,:,:,:] = np.transpose(misc.imresize(misc.imread(p[i]), size=(227,227,3)), (2,0,1))
+            n_numpy[i,:,:,:] = np.transpose(misc.imresize(misc.imread(n[i]), size=(227,227,3)), (2,0,1))
         return torch.from_numpy(a_numpy), torch.from_numpy(p_numpy), torch.from_numpy(n_numpy)
 
     def _save(self):
