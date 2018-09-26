@@ -7,7 +7,7 @@ import torch
 import torchvision.models as models
 
 class BilinearAlex(torch.nn.Module):
-    def __init__(self, freeze=True):
+    def __init__(self, freeze=None):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features
         bfc_list = list(models.alexnet().classifier.children())[:-1]
@@ -15,13 +15,9 @@ class BilinearAlex(torch.nn.Module):
         self.bfc = torch.nn.Sequential(*bfc_list)
         self.fc = torch.nn.Linear(512**2, 512)
 
-        # Freeze all previous layers.
+        # Freeze layers.
         if freeze:
-            for param in self.features.parameters():
-                param.requires_grad = False
-            for layer in self.bfc[:-1]:
-                for param in layer.parameters():
-                    param.requires_grad = False
+            self._freeze(freeze)
 
         # Initialize the last bfc layers.
         torch.nn.init.kaiming_normal_(self.bfc[-1].weight.data)
@@ -49,10 +45,27 @@ class BilinearAlex(torch.nn.Module):
         assert X.size() == (N, 512)
         return X
 
+    def _freeze(option):
+        if option == 'part':
+            for param in self.features.parameters():
+                param.requires_grad = False
+            for layer in self.bfc[:-1]:
+                for param in layer.parameters():
+                    param.requires_grad = False
+        elif option = 'all':
+            for param in self.features.parameters():
+                param.requires_grad = False
+            for param in self.bfc.parameters():
+                param.requires_grad = False
+            for param in self.fc.parameters():
+                param.requires_grad = False
+        else:
+            raise ValueError('Unavailable freeze option.')
+
 
 class BilinearAlexManager(object):
-    def __init__(self, param_path = ''):
-        self._net = torch.nn.DataParallel(BilinearAlex()).cuda()
+    def __init__(self, freeze='part', param_path=None):
+        self._net = torch.nn.DataParallel(BilinearAlex(freeze=freeze)).cuda()
         print(self._net)
         # Criterion.
         self._margin = 1.0
@@ -97,15 +110,16 @@ class BilinearAlexManager(object):
 
     def test(self):
         print('Testing.')
+        self._freeze('all')
         num_correct = 0
         num_total = 0
         for a, p, n in self._data_loader(train=False):
             # Data.
             A, P, N = self._image_loader(a, p, n)
             # Forward pass.
-            feat_a = self._net(A).numpy()
-            feat_p = self._net(P).numpy()
-            feat_n = self._net(N).numpy()
+            feat_a = self._net(A).detach().numpy()
+            feat_p = self._net(P).detach().numpy()
+            feat_n = self._net(N).detach().numpy()
             num_correct += ((((feat_a-feat_p)**2).sum(axis=1) - ((feat_a-feat_n)**2).sum(axis=1) + self._margin) <= 0).sum()
             num_total += len(a)
         print('Test accuracy ', num_correct/num_total)
