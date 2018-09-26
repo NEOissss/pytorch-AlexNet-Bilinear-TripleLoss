@@ -45,14 +45,14 @@ class BilinearAlex(torch.nn.Module):
         assert X.size() == (N, 512)
         return X
 
-    def _freeze(option):
+    def _freeze(self, option):
         if option == 'part':
             for param in self.features.parameters():
                 param.requires_grad = False
             for layer in self.bfc[:-1]:
                 for param in layer.parameters():
                     param.requires_grad = False
-        elif option = 'all':
+        elif option == 'all':
             for param in self.features.parameters():
                 param.requires_grad = False
             for param in self.bfc.parameters():
@@ -67,19 +67,21 @@ class BilinearAlexManager(object):
     def __init__(self, freeze='part', param_path=None):
         self._net = torch.nn.DataParallel(BilinearAlex(freeze=freeze)).cuda()
         print(self._net)
+        # Load parameters
+        if param_path:
+            self._load(param_path)
         # Criterion.
         self._margin = 1.0
         self._criterion = torch.nn.TripletMarginLoss(margin = self._margin).cuda()
-        # Solver.
-        self._solver = torch.optim.SGD(filter(lambda p: p.requires_grad, self._net.parameters()), lr=0.001, momentum=0.9)
-        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
         # Batch size
         self._batch = 1
         # Epoch
         self._epoch = 1
-        # Load parameters
-        if param_path:
-            self._load(param_path)
+        # If not test
+        if freeze != 'all':
+            # Solver.
+            self._solver = torch.optim.SGD(filter(lambda p: p.requires_grad, self._net.parameters()), lr=0.001, momentum=0.9)
+            self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
 
     def train(self):
         """Train the network."""
@@ -110,7 +112,6 @@ class BilinearAlexManager(object):
 
     def test(self):
         print('Testing.')
-        self._freeze('all')
         num_correct = 0
         num_total = 0
         for a, p, n in self._data_loader(train=False):
