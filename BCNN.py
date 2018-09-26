@@ -118,9 +118,9 @@ class BilinearAlexManager(object):
             # Data.
             A, P, N = self._image_loader(a, p, n)
             # Forward pass.
-            feat_a = self._net(A).detach().numpy()
-            feat_p = self._net(P).detach().numpy()
-            feat_n = self._net(N).detach().numpy()
+            feat_a = self._net(A).cpu().detach().numpy()
+            feat_p = self._net(P).cpu().detach().numpy()
+            feat_n = self._net(N).cpu().detach().numpy()
             num_correct += ((((feat_a-feat_p)**2).sum(axis=1) - ((feat_a-feat_n)**2).sum(axis=1) + self._margin) <= 0).sum()
             num_total += len(a)
         print('Test accuracy ', num_correct/num_total)
