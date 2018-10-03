@@ -69,7 +69,7 @@ class BilinearAlex(torch.nn.Module):
 
 
 class BilinearAlexManager(object):
-    def __init__(self, freeze='part', batch=1, epoch=1 param_path=None):
+    def __init__(self, freeze='part', batch=1, epoch=1, param_path=None):
         self._net = torch.nn.DataParallel(BilinearAlex(freeze=freeze)).cuda()
         print(self._net)
         # Load parameters
