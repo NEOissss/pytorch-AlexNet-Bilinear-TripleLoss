@@ -1,28 +1,29 @@
-import csv
-import json
 from datetime import datetime
 import numpy as np
 from scipy import misc
 import torch
 import torchvision.models as models
+from SUN360DataLoader import *
 
 class BilinearAlex(torch.nn.Module):
     def __init__(self, freeze=None):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features
+        self.bi_dim = 128
         bfc_list = list(models.alexnet().classifier.children())[:-1]
-        bfc_list.append(torch.nn.Linear(4096, 512))
+        bfc_list.append(torch.nn.Linear(4096, self.bi_dim))
+        bfc_list.append(torch.nn.ReLU(inplace=True))
         self.bfc = torch.nn.Sequential(*bfc_list)
-        self.fc = torch.nn.Linear(512**2, 512)
+        self.fc = torch.nn.Linear(self.bi_dim**2, 1024)
 
         # Freeze layers.
         if freeze:
             self._freeze(freeze)
 
         # Initialize the last bfc layers.
-        torch.nn.init.kaiming_normal_(self.bfc[-1].weight.data)
-        if self.bfc[-1].bias is not None:
-            torch.nn.init.constant_(self.bfc[-1].bias.data, val=0)
+        torch.nn.init.kaiming_normal_(self.bfc[-2].weight.data)
+        if self.bfc[-2].bias is not None:
+            torch.nn.init.constant_(self.bfc[-2].bias.data, val=0)
 
         # Initialize the fc layers.
         torch.nn.init.kaiming_normal_(self.fc.weight.data)
@@ -36,13 +37,17 @@ class BilinearAlex(torch.nn.Module):
         X = self.features(X)
         X = X.view(N, 256 * 6 * 6)
         X = self.bfc(X)
-        assert X.size() == (N, 512)
-        X = X.view(N, -1, 512)
+        assert X.size() == (N, self.bi_dim)
+        X = X.view(N, -1, self.bi_dim)
         X = torch.matmul(torch.transpose(X, 1, 2), X)
-        assert X.size() == (N, 512, 512)
-        X = X.view(N, 512**2)
+        # Signed sqrt
+        X = torch.sqrt(X)
+        # L2 normalization
+        X = X.div(X.norm(2))
+        assert X.size() == (N, self.bi_dim, self.bi_dim)
+        X = X.view(N, self.bi_dim**2)
         X = self.fc(X)
-        assert X.size() == (N, 512)
+        assert X.size() == (N, 1024)
         return X
 
     def _freeze(self, option):
@@ -64,7 +69,7 @@ class BilinearAlex(torch.nn.Module):
 
 
 class BilinearAlexManager(object):
-    def __init__(self, freeze='part', param_path=None):
+    def __init__(self, freeze='part', batch=1, epoch=1 param_path=None):
         self._net = torch.nn.DataParallel(BilinearAlex(freeze=freeze)).cuda()
         print(self._net)
         # Load parameters
@@ -74,19 +79,20 @@ class BilinearAlexManager(object):
         self._margin = 1.0
         self._criterion = torch.nn.TripletMarginLoss(margin = self._margin).cuda()
         # Batch size
-        self._batch = 1
+        self._batch = batch
         # Epoch
-        self._epoch = 1
+        self._epoch = epoch
         # If not test
         if freeze != 'all':
             # Solver.
-            self._solver = torch.optim.SGD(filter(lambda p: p.requires_grad, self._net.parameters()), lr=0.001, momentum=0.9)
+            self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()), lr=1e-3)
             self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
 
     def train(self):
         """Train the network."""
         print('Training.')
         for t in range(self._epoch):
+            print("Epoch: " + str(self._epoch))
             epoch_loss = []
             num_correct = 0
             num_total = 0
@@ -106,31 +112,46 @@ class BilinearAlexManager(object):
                 loss.backward()
                 self._solver.step()
                 iter_num += 1
-            if iter_num%50 == 0:
-                print('Triplet loss ', epoch_loss[-1])
-        self._save()
+                if iter_num%1 == 0:
+                    print('A feature sum: {:.4f}'.format(feat_a.sum()))
+                    print('P distance: {:.4f}, N distance: {:.4f}'.format(torch.sqrt(torch.sum((feat_a-feat_p)**2)), torch.sqrt(torch.sum((feat_a-feat_n)**2))))
+                    print('fc1 weight sum: {:.4f}'.format(self._net.module.bfc[-2].weight.sum()))
+                    print('fc2 weight sum: {:.4f}'.format(self._net.module.fc.weight.sum()))
+                    print('Triplet loss: {:.4f} \n'.format(epoch_loss[-1]))
+        return self._save()
 
-    def test(self):
+    def test(self, data='test'):
         print('Testing.')
-        num_correct = 0
-        num_total = 0
-        for a, p, n in self._data_loader(train=False):
+        data_path = self._data_loader(train=False, data=data)
+        dist_mat = np.zeros((len(data_path), 10))
+        for i,j in enumerate(data_path):
             # Data.
-            A, P, N = self._image_loader(a, p, n)
+            A, P, N = j
             # Forward pass.
-            feat_a = self._net(A).cpu().detach().numpy()
-            feat_p = self._net(P).cpu().detach().numpy()
-            feat_n = self._net(N).cpu().detach().numpy()
-            num_correct += ((((feat_a-feat_p)**2).sum(axis=1) - ((feat_a-feat_n)**2).sum(axis=1) + self._margin) <= 0).sum()
-            num_total += len(a)
+            feat_a = self._net(self._single_image_loader(A[0]))
+            feat_p = self._net(self._single_image_loader(P[0]))
+            dist_mat[i,0] = torch.sqrt(torch.sum((feat_a - feat_p)**2)).cpu().detach().numpy()
+            for k, n in enumerate(N):
+                feat_n = self._net(self._single_image_loader(n))
+                dist_mat[i, k+1] = torch.sqrt(torch.sum((feat_a - feat_n)**2)).cpu().detach().numpy()
+        np.save('test_result.npy', dist_mat)
+
+        num_correct = np.sum(np.sum(dist_mat[:,1:] > dist_mat[:,:1], axis=1) == 9)
+        num_total = len(data_path)
+
         print('Test accuracy ', num_correct/num_total)
 
 
-    def _data_loader(self, train=True):
+    def _data_loader(self, train=True, data='train'):
         if train:
-            return sun360h_data_load(part='train', batch=self._batch)
+            return sun360h_data_load(task='train', batch=self._batch)
         else:
-            return sun360h_data_load(part='test', batch=self._batch)
+            return sun360h_data_load(task='test', data=data, batch=self._batch)
+
+    def _single_image_loader(self, x):
+        y = np.ndarray([1, 3, 227, 227])
+        y[0,:,:,:] = np.transpose(misc.imresize(misc.imread(x), size=(227,227,3)), (2,0,1))
+        return torch.from_numpy(y)
 
     def _image_loader(self, a, p, n):
         k = len(a)
@@ -147,56 +168,22 @@ class BilinearAlexManager(object):
         PATH = './bcnn-param-' + datetime.now().strftime('%Y%m%d%H%M%S')
         torch.save(self._net.state_dict(), PATH)
         print('Model parameters saved: ' + PATH)
+        return PATH
 
     def _load(self, PATH):
         self._net.load_state_dict(torch.load(PATH))
         print('Model parameters loaded: ' + PATH)
 
-def sun360h_data_load(part='train', ver=0, batch=1):
-    root_path = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
-    imgs_path = '/IMGs/'
 
-    if part=='train' or part=='test':
-        task_path = 'task_' + part
-        gt_path = 'gt_' + part
-    else:
-        raise ValueError('Unavailable dataset part!')
+def train():
+    bcnn = BilinearAlexManager(freeze='part')
+    return bcnn.train()
 
-    if ver==0:
-        task_path += '/'
-        gt_path += '.csv'
-    elif ver==1:
-        task_path += '_v1/'
-        gt_path += '_v1.csv'
-    elif ver==2:
-        task_path += '_v2/'
-        gt_path += '_v2.csv'
-    else:
-        raise ValueError('Unavailable dataset version!')
+def test(path):
+    bcnn = BilinearAlexManager(freeze='all', param_path=path)
+    bcnn.test(data='train')
 
-    with open(root_path + gt_path, 'r') as csv_file:
-        gt_list = list(csv.reader(csv_file, delimiter=','))
-        gt_len = len(gt_list)
-
-    result = []
-    idx = np.random.permutation(gt_len)
-
-    for i in range(0, gt_len, batch):
-        a_bacth, p_batch, n_batch = [], [], []
-        for j in idx[i:min(i+batch, gt_len)]:
-            with open(root_path + task_path + gt_list[j][0] + '.json', 'r') as f:
-                names = json.load(f)
-                a_bacth.append(root_path + imgs_path + names[0])
-                p_batch.append(root_path + imgs_path + names[1][int(gt_list[j][1])])
-                n_batch.append(root_path + imgs_path + names[1][[k for k in range(10) if k!=int(gt_list[j][1])][np.random.randint(9)]])
-        result.append([a_bacth, p_batch, n_batch])
-
-    return result
-
-def main():
-    bcnn = BilinearAlexManager()
-    bcnn.train()
-    bcnn.test()
 
 if __name__ == '__main__':
-    main()
+    path = train()
+    test(path)
