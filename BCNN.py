@@ -155,13 +155,14 @@ class AlexManager(object):
                 if iter_num%1 == 0:
                     print('A feature sum: {:.4f}'.format(feat_a.sum()))
                     print('P distance: {:.4f}, N distance: {:.4f}'.format(torch.sqrt(torch.sum((feat_a-feat_p)**2)), torch.sqrt(torch.sum((feat_a-feat_n)**2))))
-                    print('Triplet loss: {:.4f} \n'.format(epoch_loss[-1]))
+                    print('Triplet loss: {:.4f}'.format(epoch_loss[-1]))
                     if self._net_name=='Triplet':
                         print('fc-2 weight sum: {:.4f}'.format(self._net.module.fc[1].weight.abs().sum()))
                         print('fc-1 weight sum: {:.4f}'.format(self._net.module.fc[-1].weight.abs().sum()))
                     else:
                         print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
                         print('fc-1 weight sum: {:.4f}'.format(self._net.module.fc.weight.abs().sum()))
+                    print('\'n)
 
         return self._save()
 
