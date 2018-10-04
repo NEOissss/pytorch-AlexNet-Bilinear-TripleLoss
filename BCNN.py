@@ -5,11 +5,45 @@ import torch
 import torchvision.models as models
 from SUN360DataLoader import *
 
-class BilinearAlex(torch.nn.Module):
+class TripletAlex(torch.nn.module):
     def __init__(self, freeze=None):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features
-        self.bi_dim = 128
+        fc_list = list(models.alexnet().classifier.children())[:-2]
+        self.fc = torch.nn.Sequential(*fc_list)
+
+        # Freeze layers.
+        if freeze:
+            self._freeze(freeze)
+
+    def forward(self, X):
+        X = X.float()
+        N = X.size()[0]
+        assert X.size() == (N, 3, 227, 227)
+        X = self.features(X)
+        X = X.view(N, 256 * 6 * 6)
+        X = self.fc(X)
+        assert X.size() == (N, 4096)
+        return X
+
+    def _freeze(self, option):
+        if option == 'part':
+            for param in self.features.parameters():
+                param.requires_grad = False
+        elif option == 'all':
+            for param in self.features.parameters():
+                param.requires_grad = False
+            for param in self.fc.parameters():
+                param.requires_grad = False
+        else:
+            raise ValueError('Unavailable freeze option.')
+
+
+class BilinearTripletAlex(torch.nn.Module):
+    def __init__(self, freeze=None, bi_dim=128):
+        torch.nn.Module.__init__(self)
+        self.bi_dim = bi_dim
+        self.features = models.alexnet(pretrained=True).features
         bfc_list = list(models.alexnet().classifier.children())[:-1]
         bfc_list.append(torch.nn.Linear(4096, self.bi_dim))
         bfc_list.append(torch.nn.ReLU(inplace=True))
@@ -69,8 +103,15 @@ class BilinearAlex(torch.nn.Module):
 
 
 class BilinearAlexManager(object):
-    def __init__(self, freeze='part', batch=1, epoch=1, param_path=None):
-        self._net = torch.nn.DataParallel(BilinearAlex(freeze=freeze)).cuda()
+    def __init__(self, freeze='part', batch=1, epoch=1, param_path=None, net='Triplet'):
+        if net=='BilinearTriplet':
+            self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
+        elif net=='Triplet':
+            self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
+        else:
+            raise ValueError('Unavailable net option.')
+
+        self._net_name = net
         print(self._net)
         # Load parameters
         if param_path:
@@ -165,7 +206,7 @@ class BilinearAlexManager(object):
         return torch.from_numpy(a_numpy), torch.from_numpy(p_numpy), torch.from_numpy(n_numpy)
 
     def _save(self):
-        PATH = './bcnn-param-' + datetime.now().strftime('%Y%m%d%H%M%S')
+        PATH = self._net_name + '-param-' + datetime.now().strftime('%Y%m%d%H%M%S')
         torch.save(self._net.state_dict(), PATH)
         print('Model parameters saved: ' + PATH)
         return PATH
@@ -176,11 +217,11 @@ class BilinearAlexManager(object):
 
 
 def train():
-    bcnn = BilinearAlexManager(freeze='part')
+    bcnn = BilinearAlexManager(freeze='part', net='Triplet')
     return bcnn.train()
 
 def test(path):
-    bcnn = BilinearAlexManager(freeze='all', param_path=path)
+    bcnn = BilinearAlexManager(freeze='all', param_path=path, net='Triplet')
     bcnn.test(data='train')
 
 
