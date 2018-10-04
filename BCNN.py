@@ -5,7 +5,7 @@ import torch
 import torchvision.models as models
 from SUN360DataLoader import *
 
-class TripletAlex(torch.nn.module):
+class TripletAlex(torch.nn.Module):
     def __init__(self, freeze=None):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features
@@ -46,7 +46,6 @@ class BilinearTripletAlex(torch.nn.Module):
         self.features = models.alexnet(pretrained=True).features
         bfc_list = list(models.alexnet().classifier.children())[:-1]
         bfc_list.append(torch.nn.Linear(4096, self.bi_dim))
-        bfc_list.append(torch.nn.ReLU(inplace=True))
         self.bfc = torch.nn.Sequential(*bfc_list)
         self.fc = torch.nn.Linear(self.bi_dim**2, 1024)
 
@@ -55,9 +54,9 @@ class BilinearTripletAlex(torch.nn.Module):
             self._freeze(freeze)
 
         # Initialize the last bfc layers.
-        torch.nn.init.kaiming_normal_(self.bfc[-2].weight.data)
-        if self.bfc[-2].bias is not None:
-            torch.nn.init.constant_(self.bfc[-2].bias.data, val=0)
+        torch.nn.init.kaiming_normal_(self.bfc[-1].weight.data)
+        if self.bfc[-1].bias is not None:
+            torch.nn.init.constant_(self.bfc[-1].bias.data, val=0)
 
         # Initialize the fc layers.
         torch.nn.init.kaiming_normal_(self.fc.weight.data)
@@ -75,7 +74,7 @@ class BilinearTripletAlex(torch.nn.Module):
         X = X.view(N, -1, self.bi_dim)
         X = torch.matmul(torch.transpose(X, 1, 2), X)
         # Signed sqrt
-        X = torch.sqrt(X)
+        X = torch.sign(X).mul(torch.sqrt(X.abs()))
         # L2 normalization
         X = X.div(X.norm(2))
         assert X.size() == (N, self.bi_dim, self.bi_dim)
@@ -102,7 +101,7 @@ class BilinearTripletAlex(torch.nn.Module):
             raise ValueError('Unavailable freeze option.')
 
 
-class BilinearAlexManager(object):
+class AlexManager(object):
     def __init__(self, freeze='part', batch=1, epoch=1, param_path=None, net='Triplet'):
         if net=='BilinearTriplet':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
@@ -156,9 +155,14 @@ class BilinearAlexManager(object):
                 if iter_num%1 == 0:
                     print('A feature sum: {:.4f}'.format(feat_a.sum()))
                     print('P distance: {:.4f}, N distance: {:.4f}'.format(torch.sqrt(torch.sum((feat_a-feat_p)**2)), torch.sqrt(torch.sum((feat_a-feat_n)**2))))
-                    print('fc1 weight sum: {:.4f}'.format(self._net.module.bfc[-2].weight.sum()))
-                    print('fc2 weight sum: {:.4f}'.format(self._net.module.fc.weight.sum()))
                     print('Triplet loss: {:.4f} \n'.format(epoch_loss[-1]))
+                    if self._net_name=='Triplet':
+                        print('fc-2 weight sum: {:.4f}'.format(self._net.module.fc[1].weight.abs().sum()))
+                        print('fc-1 weight sum: {:.4f}'.format(self._net.module.fc[-1].weight.abs().sum()))
+                    else:
+                        print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
+                        print('fc-1 weight sum: {:.4f}'.format(self._net.module.fc.weight.abs().sum()))
+
         return self._save()
 
     def test(self, data='test'):
@@ -217,11 +221,11 @@ class BilinearAlexManager(object):
 
 
 def train():
-    bcnn = BilinearAlexManager(freeze='part', net='Triplet')
+    bcnn = AlexManager(freeze='part', net='Triplet')
     return bcnn.train()
 
 def test(path):
-    bcnn = BilinearAlexManager(freeze='all', param_path=path, net='Triplet')
+    bcnn = AlexManager(freeze='all', param_path=path, net='Triplet')
     bcnn.test(data='train')
 
 
