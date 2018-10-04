@@ -128,11 +128,11 @@ class AlexManager(object):
             self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()), lr=1e-3)
             self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
 
-    def train(self):
+    def train(self, verbose=None):
         """Train the network."""
         print('Training.')
         for t in range(self._epoch):
-            print("Epoch: " + str(self._epoch))
+            print("Epoch: " + str(t))
             epoch_loss = []
             num_correct = 0
             num_total = 0
@@ -152,7 +152,7 @@ class AlexManager(object):
                 loss.backward()
                 self._solver.step()
                 iter_num += 1
-                if iter_num%1 == 0:
+                if verbose and iter_num%verbose == 0:
                     print('A feature sum: {:.4f}'.format(feat_a.sum()))
                     print('P distance: {:.4f}, N distance: {:.4f}'.format(torch.sqrt(torch.sum((feat_a-feat_p)**2)), torch.sqrt(torch.sum((feat_a-feat_n)**2))))
                     print('Triplet loss: {:.4f}'.format(epoch_loss[-1]))
@@ -223,7 +223,7 @@ class AlexManager(object):
 
 def train():
     bcnn = AlexManager(freeze='part', net='Triplet')
-    return bcnn.train()
+    return bcnn.train(verbose=1)
 
 def test(path):
     bcnn = AlexManager(freeze='all', param_path=path, net='Triplet')
