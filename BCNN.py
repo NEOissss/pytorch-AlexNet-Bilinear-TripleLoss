@@ -24,6 +24,7 @@ class TripletAlex(torch.nn.Module):
         X = X.view(N, 256 * 6 * 6)
         X = self.fc(X)
         assert X.size() == (N, 4096)
+        X = X.div(X.norm(2))
         return X
 
     def _freeze(self, option):
@@ -40,7 +41,7 @@ class TripletAlex(torch.nn.Module):
 
 
 class BilinearTripletAlex(torch.nn.Module):
-    def __init__(self, freeze=None, bi_dim=128):
+    def __init__(self, freeze=None, bi_dim=256):
         torch.nn.Module.__init__(self)
         self.bi_dim = bi_dim
         self.features = models.alexnet(pretrained=True).features
@@ -102,14 +103,14 @@ class BilinearTripletAlex(torch.nn.Module):
 
 
 class AlexManager(object):
-    def __init__(self, freeze='part', batch=1, epoch=1, param_path=None, net='Triplet'):
+    def __init__(self, freeze='part', batch=1, epoch=1, lr=1e-3, param_path=None, net='Triplet', data_cut=None):
         if net=='BilinearTriplet':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
         elif net=='Triplet':
             self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
         else:
             raise ValueError('Unavailable net option.')
-
+        self._data_cut = data_cut
         self._net_name = net
         print(self._net)
         # Load parameters
@@ -125,14 +126,14 @@ class AlexManager(object):
         # If not test
         if freeze != 'all':
             # Solver.
-            self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()), lr=1e-3)
+            self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()), lr=lr)
             self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
 
     def train(self, verbose=None):
         """Train the network."""
         print('Training.')
         for t in range(self._epoch):
-            print("Epoch: " + str(t))
+            print("Epoch: " + str(self._epoch))
             epoch_loss = []
             num_correct = 0
             num_total = 0
@@ -158,11 +159,10 @@ class AlexManager(object):
                     print('Triplet loss: {:.4f}'.format(epoch_loss[-1]))
                     if self._net_name=='Triplet':
                         print('fc-2 weight sum: {:.4f}'.format(self._net.module.fc[1].weight.abs().sum()))
-                        print('fc-1 weight sum: {:.4f}'.format(self._net.module.fc[-1].weight.abs().sum()))
+                        print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc[-1].weight.abs().sum()))
                     else:
                         print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
-                        print('fc-1 weight sum: {:.4f}'.format(self._net.module.fc.weight.abs().sum()))
-                    print('\'n)
+                        print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc.weight.abs().sum()))
 
         return self._save()
 
@@ -190,9 +190,9 @@ class AlexManager(object):
 
     def _data_loader(self, train=True, data='train'):
         if train:
-            return sun360h_data_load(task='train', batch=self._batch)
+            return sun360h_data_load(task='train', batch=self._batch, cut=self._data_cut)
         else:
-            return sun360h_data_load(task='test', data=data, batch=self._batch)
+            return sun360h_data_load(task='test', data=data, batch=self._batch, cut=self._data_cut)
 
     def _single_image_loader(self, x):
         y = np.ndarray([1, 3, 227, 227])
@@ -221,15 +221,33 @@ class AlexManager(object):
         print('Model parameters loaded: ' + PATH)
 
 
-def train():
-    bcnn = AlexManager(freeze='part', net='Triplet')
-    return bcnn.train(verbose=1)
+def train(freeze='part', batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, data_cut=None):
+    bcnn = AlexManager(freeze=freeze, batch=batch, epoch=epoch, lr=lr, net=net, data_cut=data_cut)
+    return bcnn.train(verbose=verbose)
 
-def test(path):
-    bcnn = AlexManager(freeze='all', param_path=path, net='Triplet')
-    bcnn.test(data='train')
+def test(net='Triplet', path=None, data='test', data_cut=None):
+    bcnn = AlexManager(freeze='all', param_path=path, net=net, data_cut=data_cut)
+    bcnn.test(data=data)
 
+def main():
+    freeze = 'part'
+    batch_size = 10
+    epoch_num = 50
+    learning_rate = 0.1
+    net_name = 'Triplet'
+    verbose = 2
+    test_data = 'train'
+    data_size = [0, 30]
+
+    path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, net=net_name, verbose=verbose, data_cut=data_size)
+    test(net=net_name, path=path, data=test_data, data_cut=data_size)
+    print('\n====Exp details====')
+    print('Net: ' + net_name)
+    print('Epoch: {:d}, Batch: {:d}'.format(epoch_num, batch_size))
+    print('Test dataset: ' + test_data)
+    if data_size:
+        print('Data chunk start: {:d}, Data chunk length: {:d}'.format(data_size[0], data_size[1]))
+    print('Learning rate: {:.4f}'.format(learning_rate))
 
 if __name__ == '__main__':
-    path = train()
-    test(path)
+    main()

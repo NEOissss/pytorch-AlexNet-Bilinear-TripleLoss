@@ -2,7 +2,7 @@ import csv
 import json
 import numpy as np
 
-def sun360h_data_load(task='train', data='train', ver=0, batch=1):
+def sun360h_data_load(task='train', data='train', ver=0, batch=1, cut=None):
     root_path = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
     imgs_path = '/IMGs/'
 
@@ -25,7 +25,10 @@ def sun360h_data_load(task='train', data='train', ver=0, batch=1):
         raise ValueError('Unavailable dataset version!')
 
     with open(root_path + gt_path, 'r') as csv_file:
-        gt_list = list(csv.reader(csv_file, delimiter=','))[:20]
+        if cut:
+            gt_list = list(csv.reader(csv_file, delimiter=','))[cut[0]:cut[1]]
+        else:
+           gt_list = list(csv.reader(csv_file, delimiter=','))
         gt_len = len(gt_list)
 
     result = []
