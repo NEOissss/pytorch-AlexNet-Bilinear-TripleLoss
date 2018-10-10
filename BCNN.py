@@ -221,8 +221,8 @@ class AlexManager(object):
         print('Model parameters loaded: ' + PATH)
 
 
-def train(freeze='part', batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, data_cut=None):
-    bcnn = AlexManager(freeze=freeze, batch=batch, epoch=epoch, lr=lr, net=net, data_cut=data_cut)
+def train(freeze='part', batch=10, epoch=20, lr=0.1, net='Triplet', path=None, verbose=2, data_cut=None):
+    bcnn = AlexManager(freeze=freeze, batch=batch, epoch=epoch, lr=lr, param_path=path, net=net, data_cut=data_cut)
     return bcnn.train(verbose=verbose)
 
 def test(net='Triplet', path=None, data='test', data_cut=None):
@@ -230,6 +230,7 @@ def test(net='Triplet', path=None, data='test', data_cut=None):
     bcnn.test(data=data)
 
 def main():
+    ini_param = None
     freeze = 'part'
     batch_size = 10
     epoch_num = 50
@@ -239,7 +240,7 @@ def main():
     test_data = 'train'
     data_size = [0, 30]
 
-    path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, net=net_name, verbose=verbose, data_cut=data_size)
+    path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, path=ini_param, net=net_name, verbose=verbose, data_cut=data_size)
     test(net=net_name, path=path, data=test_data, data_cut=data_size)
     print('\n====Exp details====')
     print('Net: ' + net_name)
