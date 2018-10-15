@@ -3,6 +3,8 @@ import numpy as np
 from scipy import misc
 import torch
 import torchvision.models as models
+import torchvision.transforms as transforms
+from PIL import Image
 from SUN360DataLoader import *
 
 class TripletAlex(torch.nn.Module):
@@ -112,7 +114,7 @@ class AlexManager(object):
             raise ValueError('Unavailable net option.')
         self._data_cut = data_cut
         self._net_name = net
-        print(self._net)
+        #print(self._net)
         # Load parameters
         if param_path:
             self._load(param_path)
@@ -123,6 +125,10 @@ class AlexManager(object):
         self._batch = batch
         # Epoch
         self._epoch = epoch
+        # Image transform
+        self.transform = transforms.Compose([transforms.Resize(227),
+                                             transforms.ToTensor(),
+                                             transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])])
         # If not test
         if freeze != 'all':
             # Solver.
@@ -133,7 +139,7 @@ class AlexManager(object):
         """Train the network."""
         print('Training.')
         for t in range(self._epoch):
-            print("Epoch: " + str(self._epoch))
+            print("Epoch: {:d}\n".format(t+1))
             epoch_loss = []
             num_correct = 0
             num_total = 0
@@ -148,12 +154,13 @@ class AlexManager(object):
                 feat_p = self._net(P)
                 feat_n = self._net(N)
                 loss = self._criterion(feat_a, feat_p, feat_n)
-                epoch_loss.append(loss.data[0])
+                epoch_loss.append(loss.item())
                 # Backward pass.
                 loss.backward()
                 self._solver.step()
                 iter_num += 1
                 if verbose and iter_num%verbose == 0:
+                    print('Batch: {:d}'.format(iter_num))
                     print('A feature sum: {:.4f}'.format(feat_a.sum()))
                     print('P distance: {:.4f}, N distance: {:.4f}'.format(torch.sqrt(torch.sum((feat_a-feat_p)**2)), torch.sqrt(torch.sum((feat_a-feat_n)**2))))
                     print('Triplet loss: {:.4f}'.format(epoch_loss[-1]))
@@ -168,6 +175,7 @@ class AlexManager(object):
 
     def test(self, data='test'):
         print('Testing.')
+        self._net.eval()
         data_path = self._data_loader(train=False, data=data)
         dist_mat = np.zeros((len(data_path), 10))
         for i,j in enumerate(data_path):
@@ -176,15 +184,14 @@ class AlexManager(object):
             # Forward pass.
             feat_a = self._net(self._single_image_loader(A[0]))
             feat_p = self._net(self._single_image_loader(P[0]))
-            dist_mat[i,0] = torch.sqrt(torch.sum((feat_a - feat_p)**2)).cpu().detach().numpy()
+            dist_mat[i,0] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_p))).cpu().detach().numpy()
             for k, n in enumerate(N):
                 feat_n = self._net(self._single_image_loader(n))
-                dist_mat[i, k+1] = torch.sqrt(torch.sum((feat_a - feat_n)**2)).cpu().detach().numpy()
-        np.save('test_result.npy', dist_mat)
+                dist_mat[i, k+1] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_n))).cpu().detach().numpy()
+        np.save('test_result_' + datetime.now().strftime('%Y%m%d%H%M%S') + '.npy', dist_mat)
 
         num_correct = np.sum(np.sum(dist_mat[:,1:] > dist_mat[:,:1], axis=1) == 9)
         num_total = len(data_path)
-
         print('Test accuracy ', num_correct/num_total)
 
 
@@ -195,20 +202,19 @@ class AlexManager(object):
             return sun360h_data_load(task='test', data=data, batch=self._batch, cut=self._data_cut)
 
     def _single_image_loader(self, x):
-        y = np.ndarray([1, 3, 227, 227])
-        y[0,:,:,:] = np.transpose(misc.imresize(misc.imread(x), size=(227,227,3)), (2,0,1))
-        return torch.from_numpy(y)
-
+        y_t = torch.zeros(1, 3, 227, 227)
+        y_t[0,:,:,:] = self.transform(Image.open(x))
+        return y_t
     def _image_loader(self, a, p, n):
         k = len(a)
-        a_numpy = np.ndarray([k, 3, 227, 227])
-        p_numpy = np.ndarray([k, 3, 227, 227])
-        n_numpy = np.ndarray([k, 3, 227, 227])
+        a_t = torch.zeros(k, 3, 227, 227)
+        p_t = torch.zeros(k, 3, 227, 227)
+        n_t = torch.zeros(k, 3, 227, 227)
         for i in range(k):
-            a_numpy[i,:,:,:] = np.transpose(misc.imresize(misc.imread(a[i]), size=(227,227,3)), (2,0,1))
-            p_numpy[i,:,:,:] = np.transpose(misc.imresize(misc.imread(p[i]), size=(227,227,3)), (2,0,1))
-            n_numpy[i,:,:,:] = np.transpose(misc.imresize(misc.imread(n[i]), size=(227,227,3)), (2,0,1))
-        return torch.from_numpy(a_numpy), torch.from_numpy(p_numpy), torch.from_numpy(n_numpy)
+            a_t[i,:,:,:] = self.transform(Image.open(a[i]))
+            p_t[i,:,:,:] = self.transform(Image.open(p[i]))
+            n_t[i,:,:,:] = self.transform(Image.open(n[i]))
+        return a_t, p_t, n_t
 
     def _save(self):
         PATH = self._net_name + '-param-' + datetime.now().strftime('%Y%m%d%H%M%S')
@@ -221,7 +227,7 @@ class AlexManager(object):
         print('Model parameters loaded: ' + PATH)
 
 
-def train(freeze='part', batch=10, epoch=20, lr=0.1, net='Triplet', path=None, verbose=2, data_cut=None):
+def train(freeze='part', batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, path=None, data_cut=None):
     bcnn = AlexManager(freeze=freeze, batch=batch, epoch=epoch, lr=lr, param_path=path, net=net, data_cut=data_cut)
     return bcnn.train(verbose=verbose)
 
@@ -232,18 +238,20 @@ def test(net='Triplet', path=None, data='test', data_cut=None):
 def main():
     ini_param = None
     freeze = 'part'
-    batch_size = 10
-    epoch_num = 50
-    learning_rate = 0.1
+    batch_size = 64
+    epoch_num = 20
+    learning_rate = 0.001
     net_name = 'Triplet'
-    verbose = 2
-    test_data = 'train'
-    data_size = [0, 30]
+    verbose = 16
+    test_data = 'test'
+    data_size = [0, 1000]
 
-    path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, path=ini_param, net=net_name, verbose=verbose, data_cut=data_size)
+    path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, net=net_name, verbose=verbose, path=ini_param, data_cut=data_size)
     test(net=net_name, path=path, data=test_data, data_cut=data_size)
     print('\n====Exp details====')
     print('Net: ' + net_name)
+    if ini_param:
+        print('Pretrained parameters: ' + ini_param)
     print('Epoch: {:d}, Batch: {:d}'.format(epoch_num, batch_size))
     print('Test dataset: ' + test_data)
     if data_size:
