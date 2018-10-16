@@ -251,11 +251,11 @@ def main():
     freeze = 'part'
     batch_size = 20
     epoch_num = 10
-    learning_rate = 0.01
+    learning_rate = 0.001
     net_name = 'Triplet'
     verbose = 2
-    test_data = 'train'
-    data_size = [0, 100]
+    test_data = 'test'
+    data_size = None #[0, 100]
 
     path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, net=net_name, verbose=verbose, path=ini_param, data_cut=data_size)
     test(net=net_name, path=path, data=test_data, data_cut=data_size)
