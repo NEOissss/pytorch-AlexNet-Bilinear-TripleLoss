@@ -156,7 +156,7 @@ class AlexManager(object):
                 feat_a = self._net(A)
                 feat_p = self._net(P)
                 feat_n = self._net(N)
-                accu = torch.sum((feat_a-feat_p).abs().sum((1,2,3)) < (feat_a-feat_n).abs().sum((1,2,3))) / feat_a.size(0)
+                accu = torch.sum((feat_a-feat_p).abs().sum(1) < (feat_a-feat_n).abs().sum(1)) / feat_a.size(0)
                 loss = self._criterion(feat_a, feat_p, feat_n)
                 # Backward pass.
                 loss.backward()
