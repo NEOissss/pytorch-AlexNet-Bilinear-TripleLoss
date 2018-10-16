@@ -156,7 +156,7 @@ class AlexManager(object):
                 feat_a = self._net(A)
                 feat_p = self._net(P)
                 feat_n = self._net(N)
-                accu = torch.sum(torch.sum(torch.abs(feat_a-feat_p),1)<torch.sum(torch.abs(feat_a-feat_n),1))/feat_a.size(0)
+                accu = torch.sum(torch.sum(torch.abs(feat_a-feat_p),(1,2,3))<torch.sum(torch.abs(feat_a-feat_n),(1,2,3)))/feat_a.size(0)
                 loss = self._criterion(feat_a, feat_p, feat_n)
                 # Backward pass.
                 loss.backward()
@@ -177,7 +177,7 @@ class AlexManager(object):
                         print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
                         print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc.weight.abs().sum()))
         self._stats = np.array(self._stats)
-        print('Best iteration stats: ' + str(best_iter))
+        print('Best iteration stats: ' + str(best_iter) + '\n')
         return self._save()
 
     def test(self, data='test'):
@@ -229,7 +229,7 @@ class AlexManager(object):
         torch.save(self._net.state_dict(), PATH)
         np.save(path_stats, self._stats)
         print('Model parameters saved: ' + PATH)
-        print('Training stats saved: ' + path_stats)
+        print('Training stats saved: ' + path_stats + '.npy\n')
         return PATH
 
     def _load(self, PATH):
