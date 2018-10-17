@@ -106,13 +106,14 @@ class BilinearTripletAlex(torch.nn.Module):
 
 
 class AlexManager(object):
-    def __init__(self, freeze='part', batch=1, epoch=1, lr=1e-3, margin=1.0, param_path=None, net='Triplet', data_cut=None):
+    def __init__(self, freeze='part',val=True, batch=1, epoch=1, lr=1e-3, margin=1.0, param_path=None, net='Triplet', data_cut=None):
         if net=='BilinearTriplet':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
         elif net=='Triplet':
             self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
         else:
             raise ValueError('Unavailable net option.')
+        self._val = val
         self._data_cut = data_cut
         self._net_name = net
         self._stats = []
@@ -141,7 +142,7 @@ class AlexManager(object):
     def train(self, verbose=None):
         """Train the network."""
         print('Training.')
-        best_iter = [0, 0, 0, 0]
+        best_iter = [0, 0, 0, 0, 0]
         for t in range(self._epoch):
             print("Epoch: {:d}\n".format(t+1))
             num_correct = 0
@@ -156,29 +157,57 @@ class AlexManager(object):
                 feat_a = self._net(A)
                 feat_p = self._net(P)
                 feat_n = self._net(N)
-                accu = torch.sum((feat_a-feat_p).abs().sum(1) < (feat_a-feat_n).abs().sum(1)) / feat_a.size(0)
+                accu = torch.sum((feat_a-feat_p).abs().sum(1) < (feat_a-feat_n).abs().sum(1))/feat_a.size(0)
+                accu = accu.item()
                 loss = self._criterion(feat_a, feat_p, feat_n)
                 # Backward pass.
                 loss.backward()
                 self._solver.step()
                 iter_num += 1
-                self._stats.append([t+1, iter_num, accu, loss.item()])
-                if accu > best_iter[2]:
-                    best_iter = [t+1, iter_num, accu, loss.item()]
+
+                if self._val:
+                    val_accu = self.validate()
+                    if val_accu > best_iter[3]:
+                        best_iter = [t+1, iter_num, accu, val_accu, loss.item()]
+                    self._stats.append([t+1, iter_num, accu, val_accu, loss.item()])
+                else:
+                    if accu > best_iter[2]:
+                        best_iter = [t+1, iter_num, accu, loss.item()]
+                    self._stats.append([t+1, iter_num, accu, 0, loss.item()])
+
                 if verbose and iter_num%verbose == 0:
                     print('Batch: {:d}'.format(iter_num))
-                    print('A feature sum: {:.4f}'.format(feat_a.sum()))
-                    print('P distance: {:.4f}, N distance: {:.4f}'.format(torch.sqrt(torch.sum((feat_a-feat_p)**2)), torch.sqrt(torch.sum((feat_a-feat_n)**2))))
+                    #print('A feature sum: {:.4f}'.format(feat_a.sum()))
                     print('Triplet loss: {:.4f}'.format(loss.item()))
-                    if self._net_name=='Triplet':
-                        print('fc-2 weight sum: {:.4f}'.format(self._net.module.fc[1].weight.abs().sum()))
-                        print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc[-1].weight.abs().sum()))
-                    else:
-                        print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
-                        print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc.weight.abs().sum()))
+                    print('Batch accuracy: {:.2f}, Valid accuracy: {:.2f}'.format(self._stats[-1][2], self._stats[-1][3]))
+                    #if self._net_name=='Triplet':
+                    #    print('fc-2 weight sum: {:.4f}'.format(self._net.module.fc[1].weight.abs().sum()))
+                    #    print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc[-1].weight.abs().sum()))
+                    #else:
+                    #    print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
+                    #    print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc.weight.abs().sum()))
         self._stats = np.array(self._stats)
         print('Best iteration stats: ' + str(best_iter) + '\n')
         return self._save()
+
+    def validate(self):
+        self._net.eval()
+        data_path = sun360h_data_load(task='test', data='test', batch=self._batch, cut=[0,100])
+        dist_mat = np.zeros((len(data_path), 10))
+        for i,j in enumerate(data_path):
+            # Data.
+            A, P, N = j
+            # Forward pass.
+            feat_a = self._net(self._single_image_loader(A[0]))
+            feat_p = self._net(self._single_image_loader(P[0]))
+            dist_mat[i,0] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_p))).cpu().detach().numpy()
+            for k, n in enumerate(N):
+                feat_n = self._net(self._single_image_loader(n))
+                dist_mat[i, k+1] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_n))).cpu().detach().numpy()
+        num_correct = np.sum(np.sum(dist_mat[:,1:] > dist_mat[:,:1], axis=1) == 9)
+        num_total = len(data_path)
+        self._net.train()
+        return num_correct/num_total
 
     def test(self, data='test'):
         print('Testing.')
@@ -212,6 +241,7 @@ class AlexManager(object):
         y_t = torch.zeros(1, 3, 227, 227)
         y_t[0,:,:,:] = self.transform(Image.open(x))
         return y_t
+
     def _image_loader(self, a, p, n):
         k = len(a)
         a_t = torch.zeros(k, 3, 227, 227)
@@ -237,9 +267,9 @@ class AlexManager(object):
         print('Model parameters loaded: ' + PATH)
 
 
-def train(freeze='part', batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, path=None, data_cut=None):
+def train(freeze='part', val=True, batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, path=None, data_cut=None):
     margin = 1.0 if net=='Triplet' else 5.0
-    bcnn = AlexManager(freeze=freeze, batch=batch, epoch=epoch, lr=lr, margin=margin, param_path=path, net=net, data_cut=data_cut)
+    bcnn = AlexManager(freeze=freeze, val=val, batch=batch, epoch=epoch, lr=lr, margin=margin, param_path=path, net=net, data_cut=data_cut)
     return bcnn.train(verbose=verbose)
 
 def test(net='Triplet', path=None, data='test', data_cut=None):
@@ -247,15 +277,15 @@ def test(net='Triplet', path=None, data='test', data_cut=None):
     bcnn.test(data=data)
 
 def main():
-    ini_param = None
+    ini_param = None #'Triplet-param-20181016143838' #'Triplet-param-20181015181214'
     freeze = 'part'
-    batch_size = 20
+    batch_size = 64
     epoch_num = 10
-    learning_rate = 0.001
+    learning_rate = 0.1
     net_name = 'Triplet'
     verbose = 2
-    test_data = 'test'
-    data_size = None #[0, 100]
+    test_data = 'train'
+    data_size = [0, 1000]
 
     path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, net=net_name, verbose=verbose, path=ini_param, data_cut=data_size)
     test(net=net_name, path=path, data=test_data, data_cut=data_size)
