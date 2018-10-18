@@ -1,33 +1,32 @@
 from datetime import datetime
-import numpy as np
-from scipy import misc
 import torch
 import torchvision.models as models
-import torchvision.transforms as transforms
+from torchvision.transforms import Normalize, Compose, ToTensor, Resize
 from PIL import Image
 from SUN360DataLoader import *
+
 
 class TripletAlex(torch.nn.Module):
     def __init__(self, freeze=None):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features
-        fc_list = list(models.alexnet().classifier.children())[:-2]
+        fc_list = list(models.alexnet(pretrained=True).classifier.children())[:-2]
         self.fc = torch.nn.Sequential(*fc_list)
 
         # Freeze layers.
         if freeze:
             self._freeze(freeze)
 
-    def forward(self, X):
-        X = X.float()
-        N = X.size()[0]
-        assert X.size() == (N, 3, 227, 227)
-        X = self.features(X)
-        X = X.view(N, 256 * 6 * 6)
-        X = self.fc(X)
-        assert X.size() == (N, 4096)
-        X = X.div(X.norm(2))
-        return X
+    def forward(self, x):
+        x = x.float()
+        n = x.size()[0]
+        assert x.size() == (n, 3, 227, 227)
+        x = self.features(x)
+        x = x.view(n, 256 * 6 * 6)
+        x = self.fc(x)
+        assert x.size() == (n, 4096)
+        x = x.div(x.norm(2))
+        return x
 
     def _freeze(self, option):
         if option == 'part':
@@ -48,7 +47,7 @@ class BilinearTripletAlex(torch.nn.Module):
         self.bi_dim = bi_dim
         self.fc_dim = fc_dim
         self.features = models.alexnet(pretrained=True).features
-        bfc_list = list(models.alexnet().classifier.children())[:-1]
+        bfc_list = list(models.alexnet(pretrained=True).classifier.children())[:-1]
         bfc_list.append(torch.nn.Linear(4096, self.bi_dim))
         self.bfc = torch.nn.Sequential(*bfc_list)
         self.fc = torch.nn.Linear(self.bi_dim**2, self.fc_dim)
@@ -67,25 +66,25 @@ class BilinearTripletAlex(torch.nn.Module):
         if self.fc.bias is not None:
             torch.nn.init.constant_(self.fc.bias.data, val=0)
 
-    def forward(self, X):
-        X = X.float()
-        N = X.size()[0]
-        assert X.size() == (N, 3, 227, 227)
-        X = self.features(X)
-        X = X.view(N, 256 * 6 * 6)
-        X = self.bfc(X)
-        assert X.size() == (N, self.bi_dim)
-        X = X.view(N, -1, self.bi_dim)
-        X = torch.matmul(torch.transpose(X, 1, 2), X)
-        # Signed sqrt
-        X = torch.sign(X).mul(torch.sqrt(X.abs()))
+    def forward(self, x):
+        x = x.float()
+        n = x.size()[0]
+        assert x.size() == (n, 3, 227, 227)
+        x = self.features(x)
+        x = x.view(n, 256 * 6 * 6)
+        x = self.bfc(x)
+        assert x.size() == (n, self.bi_dim)
+        x = x.view(n, -1, self.bi_dim)
+        x = torch.matmul(torch.transpose(x, 1, 2), x)
+        # Signed square root
+        x = torch.sign(x).mul(torch.sqrt(x.abs()))
         # L2 normalization
-        X = X.div(X.norm(2))
-        assert X.size() == (N, self.bi_dim, self.bi_dim)
-        X = X.view(N, self.bi_dim**2)
-        X = self.fc(X)
-        assert X.size() == (N, self.fc_dim)
-        return X
+        x = x.div(x.norm(2))
+        assert x.size() == (n, self.bi_dim, self.bi_dim)
+        x = x.view(n, self.bi_dim**2)
+        x = self.fc(x)
+        assert x.size() == (n, self.fc_dim)
+        return x
 
     def _freeze(self, option):
         if option == 'part':
@@ -106,10 +105,11 @@ class BilinearTripletAlex(torch.nn.Module):
 
 
 class AlexManager(object):
-    def __init__(self, freeze='part',val=True, batch=1, epoch=1, lr=1e-3, margin=1.0, param_path=None, net='Triplet', data_cut=None):
-        if net=='BilinearTriplet':
+    def __init__(self, freeze='part', val=True, batch=1, epoch=1,
+                 lr=1e-3, margin=1.0, param_path=None, net='Triplet', data_cut=None):
+        if net == 'BilinearTriplet':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
-        elif net=='Triplet':
+        elif net == 'Triplet':
             self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
         else:
             raise ValueError('Unavailable net option.')
@@ -118,26 +118,25 @@ class AlexManager(object):
         self._net_name = net
         self._stats = []
         self._timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        #print(self._net)
+        # print(self._net)
         # Load parameters
         if param_path:
             self._load(param_path)
         # Criterion.
         self._margin = margin
-        self._criterion = torch.nn.TripletMarginLoss(margin = self._margin).cuda()
+        self._criterion = torch.nn.TripletMarginLoss(margin=self._margin).cuda()
         # Batch size
         self._batch = batch
         # Epoch
         self._epoch = epoch
         # Image transform
-        self.transform = transforms.Compose([transforms.Resize(227),
-                                             transforms.ToTensor(),
-                                             transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])])
+        self.transform = Compose([Resize(227), ToTensor(),
+                                  Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
         # If not test
         if freeze != 'all':
             # Solver.
             self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()), lr=lr)
-            self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
+            # self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
 
     def train(self, verbose=None):
         """Train the network."""
@@ -177,13 +176,13 @@ class AlexManager(object):
 
                 if verbose and iter_num%verbose == 0:
                     print('Batch: {:d}'.format(iter_num))
-                    #print('A feature sum: {:.4f}'.format(feat_a.sum()))
+                    # print('A feature sum: {:.4f}'.format(feat_a.sum()))
                     print('Triplet loss: {:.4f}'.format(loss.item()))
-                    print('Batch accuracy: {:.2f}, Valid accuracy: {:.2f}'.format(self._stats[-1][2], self._stats[-1][3]))
-                    #if self._net_name=='Triplet':
+                    print('Batch accuracy: {:.2f}, Valid accuracy: {:.2f}\n'.format(self._stats[-1][2], self._stats[-1][3]))
+                    # if self._net_name=='Triplet':
                     #    print('fc-2 weight sum: {:.4f}'.format(self._net.module.fc[1].weight.abs().sum()))
                     #    print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc[-1].weight.abs().sum()))
-                    #else:
+                    # else:
                     #    print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
                     #    print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc.weight.abs().sum()))
         self._stats = np.array(self._stats)
@@ -230,7 +229,6 @@ class AlexManager(object):
         num_total = len(data_path)
         print('Test accuracy ', num_correct/num_total)
 
-
     def _data_loader(self, train=True, data='train'):
         if train:
             return sun360h_data_load(task='train', batch=self._batch, cut=self._data_cut)
@@ -254,17 +252,17 @@ class AlexManager(object):
         return a_t, p_t, n_t
 
     def _save(self):
-        PATH = self._net_name + '-param-' + self._timestamp
+        path = self._net_name + '-param-' + self._timestamp
         path_stats = 'train_stats_' + self._timestamp
-        torch.save(self._net.state_dict(), PATH)
+        torch.save(self._net.state_dict(), path)
         np.save(path_stats, self._stats)
-        print('Model parameters saved: ' + PATH)
+        print('Model parameters saved: ' + path)
         print('Training stats saved: ' + path_stats + '.npy\n')
-        return PATH
+        return path
 
-    def _load(self, PATH):
-        self._net.load_state_dict(torch.load(PATH))
-        print('Model parameters loaded: ' + PATH)
+    def _load(self, path):
+        self._net.load_state_dict(torch.load(path))
+        print('Model parameters loaded: ' + path)
 
 
 def train(freeze='part', val=True, batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, path=None, data_cut=None):
@@ -272,26 +270,31 @@ def train(freeze='part', val=True, batch=10, epoch=20, lr=0.1, net='Triplet', ve
     bcnn = AlexManager(freeze=freeze, val=val, batch=batch, epoch=epoch, lr=lr, margin=margin, param_path=path, net=net, data_cut=data_cut)
     return bcnn.train(verbose=verbose)
 
+
 def test(net='Triplet', path=None, data='test', data_cut=None):
     bcnn = AlexManager(freeze='all', param_path=path, net=net, data_cut=data_cut)
     bcnn.test(data=data)
 
+
 def main():
-    ini_param = None #'Triplet-param-20181016143838' #'Triplet-param-20181015181214'
+    ini_param = None
     freeze = 'part'
+    val = True
     batch_size = 64
     epoch_num = 10
-    learning_rate = 0.1
+    learning_rate = 0.05
     net_name = 'Triplet'
-    verbose = 2
-    test_data = 'train'
-    data_size = [0, 1000]
+    verbose = 4
+    test_data = 'test'
+    data_size = [100, 1100]
 
-    path = train(freeze=freeze, batch=batch_size, epoch=epoch_num, lr=learning_rate, net=net_name, verbose=verbose, path=ini_param, data_cut=data_size)
+    path = train(freeze=freeze, val=val, batch=batch_size, epoch=epoch_num, lr=learning_rate,
+                 net=net_name, verbose=verbose, path=ini_param, data_cut=data_size)
     test(net=net_name, path=path, data=test_data, data_cut=data_size)
-    #test(net=net_name, path=ini_param, data=test_data, data_cut=data_size)
+    # test(net=net_name, path=ini_param, data=test_data, data_cut=data_size)
     print('\n====Exp details====')
     print('Net: ' + net_name)
+    print('Validation: ' + str(val))
     if ini_param:
         print('Pretrained parameters: ' + ini_param)
     if freeze:
@@ -299,8 +302,9 @@ def main():
     print('Epoch: {:d}, Batch: {:d}'.format(epoch_num, batch_size))
     print('Test dataset: ' + test_data)
     if data_size:
-        print('Data chunk start: {:d}, Data chunk length: {:d}'.format(data_size[0], data_size[1]))
+        print('Data chunk start: {:d}, Data chunk end: {:d}'.format(data_size[0], bool(data_size[1]) and data_size[1]))
     print('Learning rate: {:.4f}'.format(learning_rate))
+
 
 if __name__ == '__main__':
     main()
