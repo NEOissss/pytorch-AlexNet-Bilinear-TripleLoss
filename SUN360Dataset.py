@@ -4,6 +4,7 @@ This module is served as torchvision.datasets to load SUN360 Half & Half Benchma
 """
 
 import os
+import time
 import csv
 import json
 from PIL import Image
@@ -15,7 +16,7 @@ import torch.utils.data as D
 class Sun360Dataset(D.Dataset):
     def __init__(self, root, train=True, data='train', flip=True, version=0):
         super(Sun360Dataset, self).__init__()
-        self.root = root  # '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
+        self.root = root
         self.pt_path = root + 'IMGs_pt/'
         self.train = train
         self.data = data  # 'train', 'test', 'val'
@@ -93,3 +94,27 @@ class Sun360Dataset(D.Dataset):
         torch.save(tensor_p, self.pt_path + self.file_p)
 
         return tensor_a, tensor_p, tensor_n
+
+
+def test():
+    root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
+
+    start = time.time()
+    a = Sun360Dataset(root, train=True, data='train', flip=False, version=0)
+    print('Load train dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
+
+    start = time.time()
+    a = Sun360Dataset(root, train=True, data='test', flip=False, version=0)
+    print('Load test dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
+
+    start = time.time()
+    a = Sun360Dataset(root, train=True, data='train', flip=False, version=0)
+    print('Load train dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
+
+    start = time.time()
+    a = Sun360Dataset(root, train=True, data='test', flip=False, version=0)
+    print('Load test dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
+
+
+if __name__ == '__main__':
+    test()
