@@ -174,7 +174,7 @@ class AlexManager(object):
                         best_iter = [t+1, iter_num, accu, loss.item()]
                     self._stats.append([t+1, iter_num, accu, 0, loss.item()])
 
-                if verbose and iter_num%verbose == 0:
+                if verbose and iter_num % verbose == 0:
                     print('Batch: {:d}'.format(iter_num))
                     # print('A feature sum: {:.4f}'.format(feat_a.sum()))
                     print('Triplet loss: {:.4f}'.format(loss.item()))
@@ -203,7 +203,7 @@ class AlexManager(object):
             for k, n in enumerate(N):
                 feat_n = self._net(self._single_image_loader(n))
                 dist_mat[i, k+1] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_n))).cpu().detach().numpy()
-        num_correct = np.sum(np.sum(dist_mat[:,1:] > dist_mat[:,:1], axis=1) == 9)
+        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
         num_total = len(data_path)
         self._net.train()
         return num_correct/num_total
@@ -213,19 +213,19 @@ class AlexManager(object):
         self._net.eval()
         data_path = self._data_loader(train=False, data=data)
         dist_mat = np.zeros((len(data_path), 10))
-        for i,j in enumerate(data_path):
+        for i, j in enumerate(data_path):
             # Data.
             A, P, N = j
             # Forward pass.
             feat_a = self._net(self._single_image_loader(A[0]))
             feat_p = self._net(self._single_image_loader(P[0]))
-            dist_mat[i,0] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_p))).cpu().detach().numpy()
+            dist_mat[i, 0] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_p))).cpu().detach().numpy()
             for k, n in enumerate(N):
                 feat_n = self._net(self._single_image_loader(n))
                 dist_mat[i, k+1] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_n))).cpu().detach().numpy()
         np.save('test_result_' + self._timestamp + '.npy', dist_mat)
         print('Test accuracy saved: test_result_' + self._timestamp + '.npy')
-        num_correct = np.sum(np.sum(dist_mat[:,1:] > dist_mat[:,:1], axis=1) == 9)
+        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
         num_total = len(data_path)
         print('Test accuracy ', num_correct/num_total)
 
@@ -246,9 +246,9 @@ class AlexManager(object):
         p_t = torch.zeros(k, 3, 227, 227)
         n_t = torch.zeros(k, 3, 227, 227)
         for i in range(k):
-            a_t[i,:,:,:] = self.transform(Image.open(a[i]))
-            p_t[i,:,:,:] = self.transform(Image.open(p[i]))
-            n_t[i,:,:,:] = self.transform(Image.open(n[i]))
+            a_t[i, :, :, :] = self.transform(Image.open(a[i]))
+            p_t[i, :, :, :] = self.transform(Image.open(p[i]))
+            n_t[i, :, :, :] = self.transform(Image.open(n[i]))
         return a_t, p_t, n_t
 
     def _save(self):
@@ -266,8 +266,9 @@ class AlexManager(object):
 
 
 def train(freeze='part', val=True, batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, path=None, data_cut=None):
-    margin = 1.0 if net=='Triplet' else 5.0
-    bcnn = AlexManager(freeze=freeze, val=val, batch=batch, epoch=epoch, lr=lr, margin=margin, param_path=path, net=net, data_cut=data_cut)
+    margin = 1.0 if net == 'Triplet' else 5.0
+    bcnn = AlexManager(freeze=freeze, val=val, batch=batch, epoch=epoch, lr=lr,
+                       margin=margin, param_path=path, net=net, data_cut=data_cut)
     return bcnn.train(verbose=verbose)
 
 
