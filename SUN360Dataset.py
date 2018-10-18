@@ -6,10 +6,9 @@ This module is served as torchvision.datasets to load SUN360 Half & Half Benchma
 import os
 import csv
 import json
-import numpy as np
 from PIL import Image
 import torch
-import torchvision.transforms as transforms
+from torchvision.transforms import Normalize, Compose, ToTensor, Resize
 import torch.utils.data as D
 
 
@@ -22,11 +21,7 @@ class Sun360Dataset(D.Dataset):
         self.data = data  # 'train', 'test', 'val'
         self.flip = flip
         self.ver = version
-        self.tf = transforms.Compose([transforms.Resize(227),
-                                      transforms.ToTensor(),
-                                      transforms.Normalize(
-                                      mean=[0.485, 0.456, 0.406],
-                                      std=[0.229, 0.224, 0.225])])
+        self.tf = Compose([Resize(227), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
         self._param_check()
         self.gt = self._load_gt()
@@ -43,10 +38,8 @@ class Sun360Dataset(D.Dataset):
             self.tensor_p = torch.load(self.pt_path + self.file_p)
             self.tensor_n = torch.load(self.pt_path + self.file_n)
 
-    def __getitem__(self, batch):
-        # Some data read from a file or image
-        pass
-        # return (a, p, n)
+    def __getitem__(self, idx):
+        return self.tensor_a[idx, :, :, :], self.tensor_p[idx, :, :, :], self.tensor_n[idx, :, :, :, :]
 
     def __len__(self):
         return self.len
@@ -70,7 +63,9 @@ class Sun360Dataset(D.Dataset):
     def _file_check(self):
         if not os.path.exists(self.pt_path):
             os.mkdir(self.pt_path)
-        return os.path.exists(self.pt_path + self.file_a) and os.path.exists(self.pt_path + self.file_p) and os.path.exists(self.pt_path + self.file_n)
+        return (os.path.exists(self.pt_path + self.file_a) and
+                os.path.exists(self.pt_path + self.file_p) and
+                os.path.exists(self.pt_path + self.file_n))
 
     def _file_create(self):
         imgs_path = self.root + 'IMGs/'
