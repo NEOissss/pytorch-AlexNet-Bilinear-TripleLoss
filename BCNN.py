@@ -1,9 +1,9 @@
 from datetime import datetime
 import torch
 import torchvision.models as models
-from torchvision.transforms import Normalize, Compose, ToTensor, Resize
-from PIL import Image
+from torch.utils.data import DataLoader
 from SUN360DataLoader import *
+from SUN360Dataset import *
 
 
 class TripletAlex(torch.nn.Module):
@@ -106,7 +106,7 @@ class BilinearTripletAlex(torch.nn.Module):
 
 class AlexManager(object):
     def __init__(self, freeze='part', val=True, batch=1, epoch=1,
-                 lr=1e-3, margin=1.0, param_path=None, net='Triplet', data_cut=None):
+                 lr=1e-3, margin=1.0, param_path=None, net='Triplet'):
         if net == 'BilinearTriplet':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
         elif net == 'Triplet':

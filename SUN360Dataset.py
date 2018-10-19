@@ -11,11 +11,11 @@ from random import randint
 from PIL import Image
 import torch
 from torchvision.transforms import Normalize, Compose, ToTensor, Resize
-import torch.utils.data as D
+from torch.utils.data import Dataset, DataLoader
 
 
-class Sun360Dataset(D.Dataset):
-    def __init__(self, root, train=True, dataset='train', flip=True, version=0):
+class Sun360Dataset(Dataset):
+    def __init__(self, root, train=True, dataset='train', flip=True, version=0, cut=None):
         super(Sun360Dataset, self).__init__()
         self.root = root
         self.train = train
@@ -29,6 +29,9 @@ class Sun360Dataset(D.Dataset):
         self.pt_path = '{:s}/IMGs_pt'.format(self.root)
         self.data_path = '{:s}/{:s}_v{:d}'.format(self.pt_path, self.dataset, self.ver)
         self.data, self.gt = self._load_data()
+        if cut:
+            self.data = self.data[cut[0], cut[1]]
+            self.gt = self.gt[cut[0], cut[1]]
         self.len = len(self.data)
 
         if not self._file_check():
@@ -97,7 +100,7 @@ class Sun360Dataset(D.Dataset):
             torch.save(tensor, file_path)
 
 
-def test():
+def init_test():
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
 
     start = time.time()
@@ -115,6 +118,15 @@ def test():
     start = time.time()
     a = Sun360Dataset(root, train=True, dataset='test', flip=False, version=0)
     print('Load test dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
+
+
+def test():
+    root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
+    a = Sun360Dataset(root, train=True, dataset='train', flip=False, version=0, cut=[0, 10])
+    b = DataLoader(dataset=a, batch_size=5)
+    c = iter(b)
+    for i in c:
+        print(i.size())
 
 
 if __name__ == '__main__':
