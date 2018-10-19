@@ -30,8 +30,8 @@ class Sun360Dataset(Dataset):
         self.data_path = '{:s}/{:s}_v{:d}'.format(self.pt_path, self.dataset, self.ver)
         self.data, self.gt = self._load_data()
         if cut:
-            self.data = self.data[cut[0], cut[1]]
-            self.gt = self.gt[cut[0], cut[1]]
+            self.data = self.data[cut[0]: cut[1]]
+            self.gt = self.gt[cut[0]: cut[1]]
         self.len = len(self.data)
 
         if not self._file_check():
