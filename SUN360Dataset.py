@@ -46,7 +46,7 @@ class Sun360Dataset(D.Dataset):
         return self.len
 
     def _param_check(self):
-        if self.data not in ['train', 'test']:
+        if self.dataset not in ['train', 'test']:
             raise ValueError('Unavailable dataset part!')
         if self.ver not in [0, 1, 2]:
             raise ValueError('Unavailable dataset version!')
@@ -87,8 +87,8 @@ class Sun360Dataset(D.Dataset):
 
         for i in range(0, self.len):
             tensor = torch.zeros(11, 3, 227, 227)
-            file_path = '{:s}/{:s}.pt'.format(self.pt_path, self.data[i])
-            with open(self.root + task_path + self.gt[i] + '.json', 'r') as f:
+            file_path = '{:s}/{:s}.pt'.format(self.data_path, self.data[i])
+            with open(self.root + task_path + self.data[i] + '.json', 'r') as f:
                 names = json.load(f)
                 tensor[0, :, :, :] = self.tf(Image.open(img_path + names[0]))
                 tensor[1, :, :, :] = self.tf(Image.open(img_path + names[1][self.gt[i]]))
@@ -101,19 +101,19 @@ def test():
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, data='train', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='train', flip=False, version=0)
     print('Load train dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, data='test', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='test', flip=False, version=0)
     print('Load test dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, data='train', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='train', flip=False, version=0)
     print('Load train dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, data='test', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='test', flip=False, version=0)
     print('Load test dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
 
