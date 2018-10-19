@@ -105,67 +105,60 @@ class BilinearTripletAlex(torch.nn.Module):
 
 
 class AlexManager(object):
-    def __init__(self, freeze='part', val=True, batch=1, epoch=1,
-                 lr=1e-3, margin=1.0, param_path=None, net='Triplet'):
+    def __init__(self, freeze='part', val=True, batch=1, lr=1e-3, margin=1.0, param_path=None, net='Triplet'):
         if net == 'BilinearTriplet':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
         elif net == 'Triplet':
             self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
         else:
             raise ValueError('Unavailable net option.')
-        self._val = val
-        self._data_cut = data_cut
-        self._net_name = net
-        self._stats = []
-        self._timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        # print(self._net)
-        # Load parameters
+        # Load pre-trained parameters
         if param_path:
             self._load(param_path)
-        # Criterion.
-        self._margin = margin
-        self._criterion = torch.nn.TripletMarginLoss(margin=self._margin).cuda()
-        # Batch size
+
         self._batch = batch
-        # Epoch
-        self._epoch = epoch
-        # Image transform
-        self.transform = Compose([Resize(227), ToTensor(),
-                                  Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        self._val = val
+        self._net_name = net
+        self._stats = []
+        # print(self._net)
+        self._criterion = torch.nn.TripletMarginLoss(margin=margin).cuda()
+
         # If not test
         if freeze != 'all':
-            # Solver.
             self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()), lr=lr)
-            # self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1, patience=3, verbose=True, threshold=1e-4)
+            # self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1,
+            #                                                              patience=3, verbose=True, threshold=1e-4)
 
-    def train(self, verbose=None):
+        # Load data
+        root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
+        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root)
+
+    def train(self, epoch=1, verbose=None):
         """Train the network."""
         print('Training.')
+        self._stats = []
         best_iter = [0, 0, 0, 0, 0]
-        for t in range(self._epoch):
-            print("Epoch: {:d}\n".format(t+1))
-            num_correct = 0
-            num_total = 0
+        for t in range(epoch):
+            print("\nEpoch: {:d}".format(t+1))
             iter_num = 0
-            for a, p, n in self._data_loader():
+            for data in iter(self.train_data_loader):
                 # Data.
-                A, P, N = self._image_loader(a, p, n)
+                data = data.reshape(-1, 3, 227, 227)
                 # Clear the existing gradients.
                 self._solver.zero_grad()
                 # Forward pass.
-                feat_a = self._net(A)
-                feat_p = self._net(P)
-                feat_n = self._net(N)
-                accu = torch.sum((feat_a-feat_p).abs().sum(1) < (feat_a-feat_n).abs().sum(1))/feat_a.size(0)
-                accu = accu.item()
-                loss = self._criterion(feat_a, feat_p, feat_n)
+                feat = self._net(data)
+                dist_p = ((feat[0::3, :]-feat[1::3, :])**2).sum(1)
+                dist_n = ((feat[0::3, :]-feat[2::3, :])**2).sum(1)
+                accu = torch.sum(dist_p < dist_n).item()/(feat.size(0)/3)
+                loss = self._criterion(feat[0::3, :], feat[1::3, :], feat[2::3, :])
                 # Backward pass.
                 loss.backward()
                 self._solver.step()
                 iter_num += 1
 
                 if self._val:
-                    val_accu = self.validate()
+                    val_accu = self.test(val=True)
                     if val_accu > best_iter[3]:
                         best_iter = [t+1, iter_num, accu, val_accu, loss.item()]
                     self._stats.append([t+1, iter_num, accu, val_accu, loss.item()])
@@ -175,85 +168,57 @@ class AlexManager(object):
                     self._stats.append([t+1, iter_num, accu, 0, loss.item()])
 
                 if verbose and iter_num % verbose == 0:
-                    print('Batch: {:d}'.format(iter_num))
-                    # print('A feature sum: {:.4f}'.format(feat_a.sum()))
-                    print('Triplet loss: {:.4f}'.format(loss.item()))
-                    print('Batch accuracy: {:.2f}, Valid accuracy: {:.2f}\n'.format(self._stats[-1][2], self._stats[-1][3]))
-                    # if self._net_name=='Triplet':
-                    #    print('fc-2 weight sum: {:.4f}'.format(self._net.module.fc[1].weight.abs().sum()))
-                    #    print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc[-1].weight.abs().sum()))
-                    # else:
-                    #    print('fc-2 weight sum: {:.4f}'.format(self._net.module.bfc[-1].weight.abs().sum()))
-                    #    print('fc-1 weight sum: {:.4f}\n'.format(self._net.module.fc.weight.abs().sum()))
+                    print('Batch: {:d}, Triplet loss: {:.4f}, Batch accuracy: {:.2f}, Valid accuracy: {:.2f}'.format(
+                        iter_num, loss.item(), self._stats[-1][2], self._stats[-1][3]))
+
         self._stats = np.array(self._stats)
         print('Best iteration stats: ' + str(best_iter) + '\n')
         return self._save()
 
-    def validate(self):
+    def test(self, param_path=None, val=False):
+        if param_path:
+            self._load(param_path)
+        if val:
+            data_loader = self.val_data_loader
+        else:
+            data_loader = self.test_data_loader
+            print('Testing.')
+
         self._net.eval()
-        data_path = sun360h_data_load(task='test', data='test', batch=self._batch, cut=[0,100])
-        dist_mat = np.zeros((len(data_path), 10))
-        for i,j in enumerate(data_path):
-            # Data.
-            A, P, N = j
-            # Forward pass.
-            feat_a = self._net(self._single_image_loader(A[0]))
-            feat_p = self._net(self._single_image_loader(P[0]))
-            dist_mat[i,0] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_p))).cpu().detach().numpy()
-            for k, n in enumerate(N):
-                feat_n = self._net(self._single_image_loader(n))
-                dist_mat[i, k+1] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_n))).cpu().detach().numpy()
+        dist_mat = np.zeros((len(data_loader.dataset), 10))
+
+        for i, data in enumerate(data_loader):
+            data = data.reshape(-1, 3, 227, 227)
+            feat = self._net(data)
+            feat = feat.reshape(feat.size(0)/11, 11, -1)
+            dist_p = torch.sqrt(((feat[:, 0, :] - feat[:, 1, :])**2).sum(1))
+            dist_n = torch.sqrt(((feat[:, 0, :] - feat[:, 2:, :])**2).sum(2))
+            dist_mat[i*self._batch:, 0] = dist_p.cpu().detach().numpy()
+            dist_mat[i*self._batch:, 1:] = dist_n.cpu().detach().numpy()
+
         num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
-        num_total = len(data_path)
+        num_total = dist_mat.shape[0]
+
+        if not val:
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            print('Test accuracy saved: test_result_' + timestamp + '.npy')
+            print('Test accuracy ', num_correct/num_total)
         self._net.train()
         return num_correct/num_total
 
-    def test(self, data='test'):
-        print('Testing.')
-        self._net.eval()
-        data_path = self._data_loader(train=False, data=data)
-        dist_mat = np.zeros((len(data_path), 10))
-        for i, j in enumerate(data_path):
-            # Data.
-            A, P, N = j
-            # Forward pass.
-            feat_a = self._net(self._single_image_loader(A[0]))
-            feat_p = self._net(self._single_image_loader(P[0]))
-            dist_mat[i, 0] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_p))).cpu().detach().numpy()
-            for k, n in enumerate(N):
-                feat_n = self._net(self._single_image_loader(n))
-                dist_mat[i, k+1] = torch.sqrt(torch.sum(torch.abs(feat_a - feat_n))).cpu().detach().numpy()
-        np.save('test_result_' + self._timestamp + '.npy', dist_mat)
-        print('Test accuracy saved: test_result_' + self._timestamp + '.npy')
-        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
-        num_total = len(data_path)
-        print('Test accuracy ', num_correct/num_total)
-
-    def _data_loader(self, train=True, data='train'):
-        if train:
-            return sun360h_data_load(task='train', batch=self._batch, cut=self._data_cut)
-        else:
-            return sun360h_data_load(task='test', data=data, batch=self._batch, cut=self._data_cut)
-
-    def _single_image_loader(self, x):
-        y_t = torch.zeros(1, 3, 227, 227)
-        y_t[0,:,:,:] = self.transform(Image.open(x))
-        return y_t
-
-    def _image_loader(self, a, p, n):
-        k = len(a)
-        a_t = torch.zeros(k, 3, 227, 227)
-        p_t = torch.zeros(k, 3, 227, 227)
-        n_t = torch.zeros(k, 3, 227, 227)
-        for i in range(k):
-            a_t[i, :, :, :] = self.transform(Image.open(a[i]))
-            p_t[i, :, :, :] = self.transform(Image.open(p[i]))
-            n_t[i, :, :, :] = self.transform(Image.open(n[i]))
-        return a_t, p_t, n_t
+    def _data_loader(self, root):
+        train_dataset = Sun360Dataset(root=root, train=True, dataset='train')
+        test_dataset = Sun360Dataset(root=root, train=False, dataset='train', cut=[100, None])
+        val_dataset = Sun360Dataset(root=root, train=False, dataset='train', cut=[0, 100])
+        train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
+        test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch)
+        val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch)
+        return train_data_loader, test_data_loader, val_data_loader
 
     def _save(self):
-        path = self._net_name + '-param-' + self._timestamp
-        path_stats = 'train_stats_' + self._timestamp
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        path = self._net_name + '-param-' + timestamp
+        path_stats = 'train_stats_' + timestamp
         torch.save(self._net.state_dict(), path)
         np.save(path_stats, self._stats)
         print('Model parameters saved: ' + path)
@@ -265,18 +230,6 @@ class AlexManager(object):
         print('Model parameters loaded: ' + path)
 
 
-def train(freeze='part', val=True, batch=10, epoch=20, lr=0.1, net='Triplet', verbose=2, path=None, data_cut=None):
-    margin = 1.0 if net == 'Triplet' else 5.0
-    bcnn = AlexManager(freeze=freeze, val=val, batch=batch, epoch=epoch, lr=lr,
-                       margin=margin, param_path=path, net=net, data_cut=data_cut)
-    return bcnn.train(verbose=verbose)
-
-
-def test(net='Triplet', path=None, data='test', data_cut=None):
-    bcnn = AlexManager(freeze='all', param_path=path, net=net, data_cut=data_cut)
-    bcnn.test(data=data)
-
-
 def main():
     ini_param = None
     freeze = 'part'
@@ -286,12 +239,10 @@ def main():
     learning_rate = 0.05
     net_name = 'Triplet'
     verbose = 4
-    test_data = 'test'
-    data_size = [100, 1100]
 
-    path = train(freeze=freeze, val=val, batch=batch_size, epoch=epoch_num, lr=learning_rate,
-                 net=net_name, verbose=verbose, path=ini_param, data_cut=data_size)
-    test(net=net_name, path=path, data=test_data, data_cut=data_size)
+    bcnn = AlexManager(freeze=freeze, val=val, batch=batch_size, param_path=ini_param, net=net_name)
+    path = bcnn.train(epoch=epoch_num, verbose=verbose)
+    bcnn.test(param_path=path)
     # test(net=net_name, path=ini_param, data=test_data, data_cut=data_size)
     print('\n====Exp details====')
     print('Net: ' + net_name)
@@ -301,9 +252,6 @@ def main():
     if freeze:
         print('Freeze mode: ' + freeze)
     print('Epoch: {:d}, Batch: {:d}'.format(epoch_num, batch_size))
-    print('Test dataset: ' + test_data)
-    if data_size:
-        print('Data chunk start: {:d}, Data chunk end: {:d}'.format(data_size[0], bool(data_size[1]) and data_size[1]))
     print('Learning rate: {:.4f}'.format(learning_rate))
 
 

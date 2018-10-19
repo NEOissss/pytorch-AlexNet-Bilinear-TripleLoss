@@ -38,7 +38,7 @@ class Sun360Dataset(Dataset):
             self._file_create()
 
     def __getitem__(self, idx):
-        file_path = '{:s}/{:s}.pt'.format(self.pt_path, self.data[idx])
+        file_path = '{:s}/{:s}.pt'.format(self.data_path, self.data[idx])
         tensor = torch.load(file_path)
         if self.train:
             return tensor[[0, 1, randint(2, 10)], :, :, :]
@@ -121,7 +121,7 @@ def init_test():
 
 
 def test():
-    root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
+    root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf'
     a = Sun360Dataset(root, train=True, dataset='train', flip=False, version=0, cut=[0, 10])
     b = DataLoader(dataset=a, batch_size=5)
     c = iter(b)
