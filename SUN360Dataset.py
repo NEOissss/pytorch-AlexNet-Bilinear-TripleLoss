@@ -7,6 +7,7 @@ import os
 import time
 import csv
 import json
+from random import randint
 from PIL import Image
 import torch
 from torchvision.transforms import Normalize, Compose, ToTensor, Resize
@@ -14,33 +15,32 @@ import torch.utils.data as D
 
 
 class Sun360Dataset(D.Dataset):
-    def __init__(self, root, train=True, data='train', flip=True, version=0):
+    def __init__(self, root, train=True, dataset='train', flip=True, version=0):
         super(Sun360Dataset, self).__init__()
         self.root = root
-        self.pt_path = root + 'IMGs_pt/'
         self.train = train
-        self.data = data  # 'train', 'test', 'val'
+        self.dataset = dataset  # 'train', 'test'
         self.flip = flip
         self.ver = version
-        self.tf = Compose([Resize(227), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
         self._param_check()
-        self.gt = self._load_gt()
-        self.len = len(self.gt)
+        self.tf = Compose([Resize(227), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-        self.file_a = 'v{:d}_{:s}_a.pt'.format(self.ver, self.data)
-        self.file_p = 'v{:d}_{:s}_a.pt'.format(self.ver, self.data)
-        self.file_n = 'v{:d}_{:s}_a.pt'.format(self.ver, self.data)
+        self.pt_path = '{:s}/IMGs_pt'.format(self.root)
+        self.data_path = '{:s}/{:s}_v{:d}'.format(self.pt_path, self.dataset, self.ver)
+        self.data, self.gt = self._load_data()
+        self.len = len(self.data)
 
         if not self._file_check():
-            self.tensor_a, self.tensor_p, self.tensor_n = self._file_create()
-        else:
-            self.tensor_a = torch.load(self.pt_path + self.file_a)
-            self.tensor_p = torch.load(self.pt_path + self.file_p)
-            self.tensor_n = torch.load(self.pt_path + self.file_n)
+            self._file_create()
 
     def __getitem__(self, idx):
-        return self.tensor_a[idx, :, :, :], self.tensor_p[idx, :, :, :], self.tensor_n[idx, :, :, :, :]
+        file_path = '{:s}/{:s}.pt'.format(self.pt_path, self.data[idx])
+        tensor = torch.load(file_path)
+        if self.train:
+            return tensor[[0, 1, randint(2, 10)], :, :, :]
+        else:
+            return tensor
 
     def __len__(self):
         return self.len
@@ -51,49 +51,50 @@ class Sun360Dataset(D.Dataset):
         if self.ver not in [0, 1, 2]:
             raise ValueError('Unavailable dataset version!')
 
-    def _load_gt(self):
-        gt_file = 'gt_' + self.data
+    def _load_data(self):
+        gt_file = 'gt_' + self.dataset
         if self.ver == 0:
             gt_file += '.csv'
         else:
             gt_file += '_v{:d}.csv'.format(self.ver)
         with open(self.root + gt_file, 'r') as csv_file:
             gt_list = list(csv.reader(csv_file, delimiter=','))
-        return gt_list
+        data, gt = [], []
+        for i, j in gt_list:
+            data.append(i)
+            gt.append(int(j))
+        return data, gt
 
     def _file_check(self):
         if not os.path.exists(self.pt_path):
             os.mkdir(self.pt_path)
-        return (os.path.exists(self.pt_path + self.file_a) and
-                os.path.exists(self.pt_path + self.file_p) and
-                os.path.exists(self.pt_path + self.file_n))
+            os.mkdir(self.data_path)
+            return False
+        elif not os.path.exists(self.data_path):
+            os.mkdir(self.data_path)
+            return False
+        else:
+            return True
 
     def _file_create(self):
-        imgs_path = self.root + 'IMGs/'
-        task_path = 'task_' + self.data
+        img_path = self.root + 'IMGs/'
+        task_path = 'task_' + self.dataset
 
         if self.ver == 0:
             task_path += '/'
         else:
             task_path += '_v{:d}/'.format(self.ver)
 
-        tensor_a = torch.zeros(self.len, 3, 227, 227)
-        tensor_p = torch.zeros(self.len, 3, 227, 227)
-        tensor_n = torch.zeros(self.len, 9, 3, 227, 227)
-
         for i in range(0, self.len):
-            with open(self.root + task_path + self.gt[i][0] + '.json', 'r') as f:
+            tensor = torch.zeros(11, 3, 227, 227)
+            file_path = '{:s}/{:s}.pt'.format(self.pt_path, self.data[i])
+            with open(self.root + task_path + self.gt[i] + '.json', 'r') as f:
                 names = json.load(f)
-                tensor_a[i, :, :, :] = self.tf(Image.open(imgs_path + names[0]))
-                tensor_p[i, :, :, :] = self.tf(Image.open(imgs_path + names[1][int(self.gt[i][1])]))
-                for j1, j2 in enumerate([k for k in range(10) if k != int(self.gt[i][1])]):
-                    tensor_n[i, j1, :, :, :] = self.tf(Image.open(imgs_path + names[1][j2]))
-
-        torch.save(tensor_a, self.pt_path + self.file_a)
-        torch.save(tensor_n, self.pt_path + self.file_n)
-        torch.save(tensor_p, self.pt_path + self.file_p)
-
-        return tensor_a, tensor_p, tensor_n
+                tensor[0, :, :, :] = self.tf(Image.open(img_path + names[0]))
+                tensor[1, :, :, :] = self.tf(Image.open(img_path + names[1][self.gt[i]]))
+                for j1, j2 in enumerate([k for k in range(10) if k != self.gt[i]]):
+                    tensor[2+j1, :, :, :] = self.tf(Image.open(img_path + names[1][j2]))
+            torch.save(tensor, file_path)
 
 
 def test():
