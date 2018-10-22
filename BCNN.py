@@ -1,8 +1,8 @@
 from datetime import datetime
+import numpy as np
 import torch
 import torchvision.models as models
 from torch.utils.data import DataLoader
-from SUN360DataLoader import *
 from SUN360Dataset import *
 
 
@@ -172,7 +172,7 @@ class AlexManager(object):
                         iter_num, loss.item(), self._stats[-1][2], self._stats[-1][3]))
 
         self._stats = np.array(self._stats)
-        print('Best iteration stats: ' + str(best_iter) + '\n')
+        print('\nBest iteration stats: ' + str(best_iter) + '\n')
         return self._save()
 
     def test(self, param_path=None, val=False):
@@ -190,11 +190,11 @@ class AlexManager(object):
         for i, data in enumerate(data_loader):
             data = data.reshape(-1, 3, 227, 227)
             feat = self._net(data)
-            feat = feat.reshape(feat.size(0)/11, 11, -1)
+            feat = feat.reshape(feat.size(0)//11, 11, -1)
             dist_p = torch.sqrt(((feat[:, 0, :] - feat[:, 1, :])**2).sum(1))
-            dist_n = torch.sqrt(((feat[:, 0, :] - feat[:, 2:, :])**2).sum(2))
-            dist_mat[i*self._batch:, 0] = dist_p.cpu().detach().numpy()
-            dist_mat[i*self._batch:, 1:] = dist_n.cpu().detach().numpy()
+            dist_n = torch.sqrt(((feat[:, :1, :] - feat[:, 2:, :])**2).sum(2))
+            dist_mat[i*self._batch:min((i+1)*self._batch, dist_mat.shape[0]), 0] = dist_p.cpu().detach().numpy()
+            dist_mat[i*self._batch:min((i+1)*self._batch, dist_mat.shape[0]), 1:] = dist_n.cpu().detach().numpy()
 
         num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
         num_total = dist_mat.shape[0]
@@ -208,8 +208,8 @@ class AlexManager(object):
 
     def _data_loader(self, root):
         train_dataset = Sun360Dataset(root=root, train=True, dataset='train')
-        test_dataset = Sun360Dataset(root=root, train=False, dataset='train', cut=[100, None])
-        val_dataset = Sun360Dataset(root=root, train=False, dataset='train', cut=[0, 100])
+        test_dataset = Sun360Dataset(root=root, train=False, dataset='test', cut=[100, None])
+        val_dataset = Sun360Dataset(root=root, train=False, dataset='test', cut=[0, 100])
         train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
         test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch)
         val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch)
@@ -231,19 +231,19 @@ class AlexManager(object):
 
 
 def main():
-    ini_param = None
+    ini_param = 'Triplet-param-20181020200547'
     freeze = 'part'
     val = True
-    batch_size = 64
-    epoch_num = 10
-    learning_rate = 0.05
+    batch_size = 128
+    epoch_num = 100
+    learning_rate = 0.1
     net_name = 'Triplet'
-    verbose = 4
+    verbose = 10
 
     bcnn = AlexManager(freeze=freeze, val=val, batch=batch_size, param_path=ini_param, net=net_name)
     path = bcnn.train(epoch=epoch_num, verbose=verbose)
     bcnn.test(param_path=path)
-    # test(net=net_name, path=ini_param, data=test_data, data_cut=data_size)
+    # bcnn.test()
     print('\n====Exp details====')
     print('Net: ' + net_name)
     print('Validation: ' + str(val))
