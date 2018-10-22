@@ -201,15 +201,23 @@ class AlexManager(object):
 
         if not val:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            np.save('test_result_' + timestamp, dist_mat)
             print('Test accuracy saved: test_result_' + timestamp + '.npy')
             print('Test accuracy ', num_correct/num_total)
         self._net.train()
         return num_correct/num_total
 
     def _data_loader(self, root):
-        train_dataset = Sun360Dataset(root=root, train=True, dataset='train')
-        test_dataset = Sun360Dataset(root=root, train=False, dataset='test', cut=[100, None])
-        val_dataset = Sun360Dataset(root=root, train=False, dataset='test', cut=[0, 100])
+        train_data = 'train'
+        test_data = 'test'
+        val_data = 'test'
+        test_cut = [100, None]
+        val_cut = [0, 100]
+        print('Train dataset: {:s}, test dataset: {:s}{:s}, val dataset: {:s}{:s}'
+              .format(train_data, test_data, str(test_cut), val_data, str(val_cut)))
+        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data)
+        test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut)
+        val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut)
         train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
         test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch)
         val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch)
