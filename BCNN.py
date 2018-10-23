@@ -25,7 +25,6 @@ class TripletAlex(torch.nn.Module):
         x = x.view(n, 256 * 6 * 6)
         x = self.fc(x)
         assert x.size() == (n, 4096)
-        x = x.div(x.norm(2))
         return x
 
     def _freeze(self, option):
@@ -247,13 +246,15 @@ def main():
     learning_rate = 0.1
     net_name = 'Triplet'
     verbose = 10
+    margin = 5
 
-    bcnn = AlexManager(freeze=freeze, val=val, batch=batch_size, param_path=ini_param, net=net_name)
+    bcnn = AlexManager(freeze=freeze, val=val, margin=margin, batch=batch_size, param_path=ini_param, net=net_name)
     path = bcnn.train(epoch=epoch_num, verbose=verbose)
     bcnn.test(param_path=path)
     # bcnn.test()
     print('\n====Exp details====')
     print('Net: ' + net_name)
+    print('Margin: {:.1f}'.format())
     print('Validation: ' + str(val))
     if ini_param:
         print('Pretrained parameters: ' + ini_param)
