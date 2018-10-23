@@ -248,7 +248,7 @@ def main():
     verbose = 10
     margin = 5
 
-    bcnn = AlexManager(freeze=freeze, val=val, margin=margin, batch=batch_size, param_path=ini_param, net=net_name)
+    bcnn = AlexManager(freeze=freeze, val=val, margin=margin, lr=learning_rate, batch=batch_size, param_path=ini_param, net=net_name)
     path = bcnn.train(epoch=epoch_num, verbose=verbose)
     bcnn.test(param_path=path)
     # bcnn.test()
