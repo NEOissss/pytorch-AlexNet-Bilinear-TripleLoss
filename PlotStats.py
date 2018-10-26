@@ -55,11 +55,11 @@ def plot_stats(log_files):
 
 def analyze_log(filename):
     with open(filename, 'r') as fp:
-        for line in fp:
-            match_file = re.search(r'train_stats_\d+.npy', line)
-            match_batch = re.search(r'Batch:\s\d+', line)
-            match_lr = re.search(r'rate:\s\d+.\d+', line)
-            match_margin = re.search(r'Margin:\s\d+.\d+', line)
+        content = fp.read()
+        match_file = re.search(r'train_stats_\d+.npy', content)
+        match_batch = re.search(r'Batch:\s\d+', content)
+        match_lr = re.search(r'rate:\s\d+.\d+', content)
+        match_margin = re.search(r'Margin:\s\d+.\d+', content)
     label = '{:s}-{:s}-{:s}'.format(match_margin.group().split()[-1],
                                     match_batch.group().split()[-1],
                                     match_lr.group().split()[-1])
@@ -67,4 +67,4 @@ def analyze_log(filename):
 
 
 if __name__ == '__main__':
-    plot_stats(['slurm-4272548.out '])
+    plot_stats(['slurm-4272548.out'])
