@@ -238,14 +238,14 @@ class AlexManager(object):
 
 
 def main():
-    ini_param = 'Triplet-param-20181020200547'
+    ini_param = None
     freeze = 'part'
     val = True
     batch_size = 128
     epoch_num = 100
-    learning_rate = 0.1
+    learning_rate = 0.001
     net_name = 'Triplet'
-    verbose = 10
+    verbose = 2
     margin = 5
 
     bcnn = AlexManager(freeze=freeze, val=val, margin=margin, lr=learning_rate, batch=batch_size, param_path=ini_param, net=net_name)
@@ -254,12 +254,11 @@ def main():
     # bcnn.test()
     print('\n====Exp details====')
     print('Net: ' + net_name)
-    print('Margin: {:.1f}'.format())
+    print('Margin: {:.1f}'.format(margin))
     print('Validation: ' + str(val))
-    if ini_param:
-        print('Pretrained parameters: ' + ini_param)
+    print('Pretrained parameters: ' + str(ini_param))
     print('Freeze mode: ' + str(freeze))
-    print('Epoch: {:d}, Batch: {:d}'.format(epoch_num, batch_size))
+    print('#Epoch: {:d}, #Batch: {:d}'.format(epoch_num, batch_size))
     print('Learning rate: {:.4f}'.format(learning_rate))
 
 
