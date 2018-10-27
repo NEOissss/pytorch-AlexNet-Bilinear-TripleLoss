@@ -7,7 +7,7 @@ def analyze_log(filename):
         match_param = re.search(r'parameters\ssaved:\s\w+', content)
         match_train = re.search(r'train_stats_\d+\.npy', content)
         match_test = re.search(r'test_result_\d+\.npy', content)
-        match_test_accu = re.search(r'Test\saccuracy.\s\d\.\d+', content)
+        match_test_accu = re.search(r'Test\saccuracy:\s\d\.\d+', content)
         match_net = re.search(r'Net:\s\w+', content)
         match_margin = re.search(r'Margin:\s\d+\.\d+', content)
         match_freeze = re.search(r'Freeze\smode:\s\w+', content)
