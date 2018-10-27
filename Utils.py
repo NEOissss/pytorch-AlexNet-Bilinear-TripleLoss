@@ -15,16 +15,19 @@ def analyze_log(filename):
         match_batch = re.search(r'Batch:\s\d+', content)
         match_lr = re.search(r'rate:\s\d+\.\d+', content)
 
-    res = {'net': match_net.group().split()[-1], 'margin': match_margin.group().split()[-1]}
-    if match_freeze:
-        res['freeze'] = match_freeze.group().split()[-1]
-    else:
-        res['freeze'] = 'None'
-    res['epoch'] = match_epoch.group().split()[-1]
-    res['batch'] = match_batch.group().split()[-1]
-    res['lr'] = match_lr.group().split()[-1]
-    res['test_accu'] = match_test_accu.group().split()[-1][:5]
-    res['param'] = match_param.group() if match_param else None
-    res['train'] = match_train.group() if match_train else None
-    res['test'] = match_test.group() if match_test else None
-    return res
+    try:
+        res = {'net': match_net.group().split()[-1], 'margin': match_margin.group().split()[-1]}
+        if match_freeze:
+            res['freeze'] = match_freeze.group().split()[-1]
+        else:
+            res['freeze'] = 'None'
+        res['epoch'] = match_epoch.group().split()[-1]
+        res['batch'] = match_batch.group().split()[-1]
+        res['lr'] = match_lr.group().split()[-1]
+        res['test_accu'] = match_test_accu.group().split()[-1][:5]
+        res['param'] = match_param.group() if match_param else None
+        res['train'] = match_train.group() if match_train else None
+        res['test'] = match_test.group() if match_test else None
+        return res
+    except(AttributeError):
+        return None

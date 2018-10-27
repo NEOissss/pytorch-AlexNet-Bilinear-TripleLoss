@@ -8,6 +8,9 @@ def pack_results(path):
     for fname in files:
         if 'slurm-' in fname:
             res = analyze_log(fname)
+            if not res:
+                print('Unknown log content: {:s}'.format(fname))
+                continue
             # Net-Freeze-Margin-Epoch-Batch-LR-k-Accu
             for k in range(100):
                 dir_path = '{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:s}'.format(
