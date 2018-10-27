@@ -1,15 +1,27 @@
 import os
-import re
 from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+from Utils import analyze_log
 
 
-def plot_stats(log_files):
+def plot_stats(log_lists):
     labels = []
     stats = []
-    for i in log_files:
-        x, y = analyze_log(i)
+    for i in log_lists:
+        if os.path.isdir(i):
+            for j in os.listdir(i):
+                if 'slurm-' in j:
+                    res = analyze_log(i + '/' + j)
+                    break
+                else:
+                    raise ValueError('Missing log file!')
+            y = i + '/' + res['train']
+        else:
+            res = analyze_log(i)
+            y = res['train']
+
+        x = '{:s}-{:s}-{:s}-{:s}'.format(res['freeze'], res['margin'], res['batch'], res['lr'])
         labels.append(x)
         stats.append(np.load(y))
 
@@ -51,19 +63,6 @@ def plot_stats(log_files):
     plt.ylabel('Triplet Loss')
     plt.legend()
     plt.savefig('{:s}/ls-{:s}'.format(path, timestamp))
-
-
-def analyze_log(filename):
-    with open(filename, 'r') as fp:
-        content = fp.read()
-        match_file = re.search(r'train_stats_\d+.npy', content)
-        match_batch = re.search(r'Batch:\s\d+', content)
-        match_lr = re.search(r'rate:\s\d+.\d+', content)
-        match_margin = re.search(r'Margin:\s\d+.\d+', content)
-    label = '{:s}-{:s}-{:s}'.format(match_margin.group().split()[-1],
-                                    match_batch.group().split()[-1],
-                                    match_lr.group().split()[-1])
-    return label, match_file.group()
 
 
 if __name__ == '__main__':

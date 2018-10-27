@@ -202,7 +202,7 @@ class AlexManager(object):
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             np.save('test_result_' + timestamp, dist_mat)
             print('Test accuracy saved: test_result_' + timestamp + '.npy')
-            print('Test accuracy ', num_correct/num_total)
+            print('Test accuracy: ', num_correct/num_total)
         self._net.train()
         return num_correct/num_total
 
@@ -258,8 +258,7 @@ def main():
     print('Validation: ' + str(val))
     if ini_param:
         print('Pretrained parameters: ' + ini_param)
-    if freeze:
-        print('Freeze mode: ' + freeze)
+    print('Freeze mode: ' + str(freeze))
     print('Epoch: {:d}, Batch: {:d}'.format(epoch_num, batch_size))
     print('Learning rate: {:.4f}'.format(learning_rate))
 
