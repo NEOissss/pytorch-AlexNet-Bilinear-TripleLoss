@@ -24,7 +24,7 @@ def analyze_log(filename):
     res['batch'] = match_batch.group().split()[-1]
     res['lr'] = match_lr.group().split()[-1]
     res['test_accu'] = match_test_accu.group().split()[-1][:5]
-    res['param'] = match_param.group()
-    res['train'] = match_train.group()
-    res['test'] = match_test.group()
+    res['param'] = match_param.group() if match_param else None
+    res['train'] = match_train.group() if match_train else None
+    res['test'] = match_test.group() if match_test else None
     return res

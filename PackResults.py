@@ -17,9 +17,12 @@ def pack_results(path):
                     os.mkdir(dir_path)
                     break
             shutil.move(fname, '{:s}/{:s}'.format(dir_path, fname))
-            shutil.move(res['param'], '{:s}/{:s}'.format(dir_path, res['param']))
-            shutil.move(res['train'], '{:s}/{:s}'.format(dir_path, res['train']))
-            shutil.move(res['test'], '{:s}/{:s}'.format(dir_path, res['test']))
+            if res['param']:
+                shutil.move(res['param'], '{:s}/{:s}'.format(dir_path, res['param']))
+            if res['train']:
+                shutil.move(res['train'], '{:s}/{:s}'.format(dir_path, res['train']))
+            if res['test']:
+                shutil.move(res['test'], '{:s}/{:s}'.format(dir_path, res['test']))
 
 
 if __name__ == '__main__':
