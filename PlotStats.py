@@ -10,12 +10,13 @@ def plot_stats(log_lists):
     stats = []
     for i in log_lists:
         if os.path.isdir(i):
+            res = None
             for j in os.listdir(i):
                 if 'slurm-' in j:
                     res = analyze_log(i + '/' + j)
                     break
-                else:
-                    raise ValueError('Missing log file!')
+            if not res:
+                raise ValueError('Missing log file!')
             y = i + '/' + res['train']
         else:
             res = analyze_log(i)

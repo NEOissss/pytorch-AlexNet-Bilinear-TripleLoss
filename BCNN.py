@@ -202,7 +202,7 @@ class AlexManager(object):
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             np.save('test_result_' + timestamp, dist_mat)
             print('Test accuracy saved: test_result_' + timestamp + '.npy')
-            print('Test accuracy: ', num_correct/num_total)
+            print('Test accuracy: {:f}'.format(num_correct/num_total))
         self._net.train()
         return num_correct/num_total
 

@@ -4,7 +4,7 @@ import re
 def analyze_log(filename):
     with open(filename, 'r') as fp:
         content = fp.read()
-        match_param = re.search(r'parameters\ssaved:\s\w+', content)
+        match_param = re.search(r'parameters\ssaved:\s\w-\w-\w+', content)
         match_train = re.search(r'train_stats_\d+\.npy', content)
         match_test = re.search(r'test_result_\d+\.npy', content)
         match_test_accu = re.search(r'Test\saccuracy:\s\d\.\d+', content)
@@ -29,5 +29,5 @@ def analyze_log(filename):
         res['train'] = match_train.group() if match_train else None
         res['test'] = match_test.group() if match_test else None
         return res
-    except(AttributeError):
+    except AttributeError:
         return None
