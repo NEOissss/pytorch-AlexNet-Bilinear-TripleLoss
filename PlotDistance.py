@@ -25,6 +25,8 @@ def plot_distance(filename):
     x0 = [i for i, j in enumerate(mask) if not j]
     pos1 = [pos[i] for i, j in enumerate(mask) if j]
     pos0 = [pos[i] for i, j in enumerate(mask) if not j]
+
+    plt.clf()
     for i in range(9):
         if i == 0:
             plt.scatter(x, neg[:, i], c='b', alpha=0.2, label='Negative')
