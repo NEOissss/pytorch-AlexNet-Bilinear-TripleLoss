@@ -27,8 +27,8 @@ def plot_distance(filename):
     pos0 = [pos[i] for i, j in enumerate(mask) if not j]
     for i in range(9):
         plt.scatter(x, neg[:, i], c='b', alpha=0.2, label='Negative')
-    plt.scatter(x1, pos1, c='g', alpha=0.5, label='Positive')
-    plt.scatter(x0, pos0, c='r', alpha=0.5, label='False Negative')
+    plt.scatter(x0, pos0, c='r', alpha=0.2, label='False Negative')
+    plt.scatter(x1, pos1, c='g', alpha=0.2, label='Positive')
     plt.xlabel('#Case')
     plt.ylabel('Distance')
     plt.savefig('{:s}/{:s}'.format(path, name))
