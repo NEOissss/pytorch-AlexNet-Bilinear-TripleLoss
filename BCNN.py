@@ -248,10 +248,6 @@ def main():
     verbose = 2
     margin = 5
 
-    bcnn = AlexManager(freeze=freeze, val=val, margin=margin, lr=learning_rate, batch=batch_size, param_path=ini_param, net=net_name)
-    path = bcnn.train(epoch=epoch_num, verbose=verbose)
-    bcnn.test(param_path=path)
-    # bcnn.test()
     print('\n====Exp details====')
     print('Net: ' + net_name)
     print('Margin: {:.1f}'.format(margin))
@@ -259,7 +255,13 @@ def main():
     print('Pretrained parameters: ' + str(ini_param))
     print('Freeze mode: ' + str(freeze))
     print('#Epoch: {:d}, #Batch: {:d}'.format(epoch_num, batch_size))
-    print('Learning rate: {:.4f}'.format(learning_rate))
+    print('Learning rate: {:.4f}\n'.format(learning_rate))
+
+    bcnn = AlexManager(freeze=freeze, val=val, margin=margin, lr=learning_rate, batch=batch_size, param_path=ini_param, net=net_name)
+    path = bcnn.train(epoch=epoch_num, verbose=verbose)
+    bcnn.test(param_path=path)
+    # bcnn.test()
+
 
 
 if __name__ == '__main__':
