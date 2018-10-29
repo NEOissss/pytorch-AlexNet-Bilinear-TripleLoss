@@ -72,7 +72,7 @@ def plot_distance_imporovement(filename):
     plt.bar(x1, y1, color='g', linewidth=0)
     plt.bar(x2, y2, color='r', linewidth=0)
     plt.bar(x3, y3, color='b', linewidth=0)
-    plt.bar(x4, y5, color='m', linewidth=0)
+    plt.bar(x4, y4, color='m', linewidth=0)
     plt.xlabel('#Case')
     plt.ylabel('Rank')
     plt.savefig('{:s}/{:s}_bar'.format(path, name))
