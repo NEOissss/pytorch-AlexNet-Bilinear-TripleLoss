@@ -143,7 +143,7 @@ def plot_distance(filename):
                 metric = np.load(path + '/' + j)
                 name = j.split('.')[0]
                 break
-        if not metric:
+        if metric is None:
             return
     else:
         path = '.'
@@ -183,7 +183,7 @@ def plot_distance_improvement(filename):
                 metric = np.load(path + '/' + j)
                 name = j.split('.')[0]
                 break
-        if not metric:
+        if metric is None:
             return
     else:
         path = '.'
