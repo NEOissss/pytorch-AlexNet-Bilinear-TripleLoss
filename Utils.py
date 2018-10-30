@@ -50,6 +50,7 @@ def pack_results(path):
                 print('Unknown log content: {:s}'.format(fname))
                 continue
             # Net-Freeze-Margin-Epoch-Batch-LR-k-Accuracy
+            dir_path = None
             for k in range(100):
                 dir_path = '{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:s}'.format(
                     res['net'], res['freeze'], res['margin'], res['epoch'],
@@ -58,6 +59,8 @@ def pack_results(path):
                     os.mkdir(dir_path)
                     dir_list.append(dir_path)
                     break
+            if not dir_path:
+                return
 
             shutil.move(fname, '{:s}/{:s}'.format(dir_path, fname))
             if res['param'] and os.path.exists(res['param']):
@@ -133,12 +136,15 @@ def plot_stats(log_lists):
 
 def plot_distance(filename):
     if os.path.isdir(filename):
+        metric = None
         path = filename
         for j in os.listdir(path):
-            if 'test_result' in j:
+            if 'test_result' in j and '.npy' in j:
                 metric = np.load(path + '/' + j)
                 name = j.split('.')[0]
                 break
+        if not metric:
+            return
     else:
         path = '.'
         metric = np.load(filename)
@@ -170,12 +176,15 @@ def plot_distance(filename):
 
 def plot_distance_improvement(filename):
     if os.path.isdir(filename):
+        metric = None
         path = filename
         for j in os.listdir(path):
-            if 'test_result' in j:
+            if 'test_result' in j and '.npy' in j:
                 metric = np.load(path + '/' + j)
                 name = j.split('.')[0]
                 break
+        if not metric:
+            return
     else:
         path = '.'
         metric = np.load(filename)
@@ -200,9 +209,9 @@ def plot_distance_improvement(filename):
 
     positive_list, negative_list = [], []
     for i in np.array(y1).argsort()[::-1]:
-        positive_list.append([x1[i], baseline[x1[i]].argmin(), y1[i]])
+        positive_list.append([x1[i], baseline[x1[i]-cut].argmin(), y1[i]])
     for i in np.array(y2).argsort():
-        negative_list.append([x2[i], metric[x2[i]].argmin(), y2[i]])
+        negative_list.append([x2[i], metric[x2[i]-cut].argmin(), y2[i]])
 
     with open(path + '/positive_list.csv', 'w') as csv_file:
         writer = csv.writer(csv_file)
