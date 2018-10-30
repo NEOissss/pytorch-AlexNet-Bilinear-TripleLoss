@@ -60,11 +60,11 @@ def pack_results(path):
                     break
 
             shutil.move(fname, '{:s}/{:s}'.format(dir_path, fname))
-            if res['param']:
+            if res['param'] and os.path.exists(res['param']):
                 shutil.move(res['param'], '{:s}/{:s}'.format(dir_path, res['param']))
-            if res['train']:
+            if res['train'] and os.path.exists(res['train']):
                 shutil.move(res['train'], '{:s}/{:s}'.format(dir_path, res['train']))
-            if res['test']:
+            if res['test'] and os.path.exists(res['test']):
                 shutil.move(res['test'], '{:s}/{:s}'.format(dir_path, res['test']))
 
     return dir_list
@@ -224,7 +224,6 @@ def plot_distance_improvement(filename):
 # Pack and plots
 def opt_all(path='./'):
     for dir_path in pack_results(path):
-        plot_stats(dir_path)
         plot_distance(dir_path)
         plot_distance_improvement(dir_path)
 
