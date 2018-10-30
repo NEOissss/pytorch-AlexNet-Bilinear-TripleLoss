@@ -18,11 +18,12 @@ def plot_distance(filename):
         name = filename.split('.')[0]
 
     x = np.arange(metric.shape[0])
+    cut = 100
     pos = metric[:, 0]
     neg = metric[:, 1:]
     mask = pos < neg.min()
-    x1 = [i for i, j in enumerate(mask) if j]
-    x0 = [i for i, j in enumerate(mask) if not j]
+    x1 = [i+cut for i, j in enumerate(mask) if j]
+    x0 = [i+cut for i, j in enumerate(mask) if not j]
     pos1 = [pos[i] for i, j in enumerate(mask) if j]
     pos0 = [pos[i] for i, j in enumerate(mask) if not j]
 
@@ -53,20 +54,21 @@ def plot_distance_imporovement(filename):
         metric = np.load(filename)
         name = filename.split('.')[0]
 
-    baseline = np.load('baseline/baseline_result_eval_trans_test.npy')
-    baseline_rank = (baseline[:, 0] < baseline[:, 1:]).sum(1)
-    metric_rank = (metric[:, 0] < metric[:, 1:]).sum(1)
+    cut = 100
+    baseline = np.load('baseline/baseline_result_eval_trans_test.npy')[cut:]
+    baseline_rank = (baseline[:, :1] < baseline[:, 1:]).sum(1)
+    metric_rank = (metric[:, :1] < metric[:, 1:]).sum(1)
 
     y = metric_rank - baseline_rank
     k = metric.shape[0]
     # 1: False->True, 2: True->False, 3: Increase 4: Decrease
-    x1 = [i for i in range(k) if metric_rank[i]==9 and y[i]>0]
+    x1 = [i+cut for i in range(k) if metric_rank[i]==9 and y[i]>0]
     y1 = [y[i] for i in range(k) if metric_rank[i]==9 and y[i]>0]
-    x2 = [i for i in range(k) if baseline_rank[i]==9 and y[i]<0]
+    x2 = [i+cut for i in range(k) if baseline_rank[i]==9 and y[i]<0]
     y2 = [y[i] for i in range(k) if baseline_rank[i]==9 and y[i]<0]
-    x3 = [i for i in range(k) if metric_rank[i]!=9 and y[i]>0]
+    x3 = [i+cut for i in range(k) if metric_rank[i]!=9 and y[i]>0]
     y3 = [y[i] for i in range(k) if metric_rank[i]!=9 and y[i]>0]
-    x4 = [i for i in range(k) if baseline_rank[i]!=9 and y[i]<0]
+    x4 = [i+cut for i in range(k) if baseline_rank[i]!=9 and y[i]<0]
     y4 = [y[i] for i in range(k) if baseline_rank[i]!=9 and y[i]<0]
 
     plt.bar(x1, y1, color='g', linewidth=0)

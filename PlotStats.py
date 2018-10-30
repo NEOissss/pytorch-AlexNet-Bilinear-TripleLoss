@@ -1,3 +1,4 @@
+import sys
 import os
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -67,4 +68,4 @@ def plot_stats(log_lists):
 
 
 if __name__ == '__main__':
-    plot_stats(['slurm-4272548.out'])
+    plot_stats(sys.argv[1:])
