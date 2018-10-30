@@ -179,7 +179,6 @@ def main():
     print('Margin: {:.1f}'.format(margin))
     print('Validation: ' + str(val))
     print('Pretrained parameters: ' + str(ini_param))
-    print('Freeze mode: ' + str(freeze))
     print('#Epoch: {:d}, #Batch: {:d}'.format(epoch_num, batch_size))
     print('Learning rate: {:.4f}\n'.format(learning_rate))
 

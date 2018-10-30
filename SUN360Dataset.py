@@ -42,7 +42,7 @@ class Sun360Dataset(Dataset):
         file_path = '{:s}/{:s}.pt'.format(self.data_path, self.data[idx])
         tensor = torch.load(file_path)
         if self.train:
-            return tensor[[0, 1, randint(2, 10)], :, :, :]
+            return tensor[[0, 1, randint(2, 10)]]
         else:
             return tensor
 
