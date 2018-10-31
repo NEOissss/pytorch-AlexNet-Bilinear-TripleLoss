@@ -199,11 +199,11 @@ def plot_distance_improvement(filename):
     k = metric.shape[0]
     j = 0
     # 1: False->True, 2: Increase, 3: Decrease, 4: True->False
-    y1 = sorted([y[i] for i in range(k) if metric_rank[i] == 9 and y[i] > 0])
+    y1 = sorted([y[i] for i in range(k) if metric_rank[i] == 9 and y[i] > 0], reverse=True)
     x1 = list(range(j, j + len(y1)))
     j += len(y1)
 
-    y2 = sorted([y[i] for i in range(k) if metric_rank[i] != 9 and y[i] > 0])
+    y2 = sorted([y[i] for i in range(k) if metric_rank[i] != 9 and y[i] > 0], reverse=True)
     x2 = list(range(j, j + len(y2)))
     j += len(y2)
 
@@ -230,9 +230,9 @@ def plot_distance_improvement(filename):
 
     plt.clf()
     plt.bar(x1, y1, color='g', linewidth=0)
-    plt.bar(x2, y2, color='r', linewidth=0)
-    plt.bar(x3, y3, color='b', linewidth=0)
-    plt.bar(x4, y4, color='m', linewidth=0)
+    plt.bar(x2, y2, color='b', linewidth=0)
+    plt.bar(x3, y3, color='m', linewidth=0)
+    plt.bar(x4, y4, color='r', linewidth=0)
     plt.xlabel('#Case')
     plt.ylabel('Rank')
     plt.savefig('{:s}/{:s}_bar'.format(path, name))
