@@ -223,10 +223,10 @@ def plot_distance_improvement(filename):
     plt.ylabel('Rank Change')
     plt.savefig('{:s}/{:s}_bar'.format(path, name))
 
-    x_pos = [i for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
+    x_pos = [i + cut for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
     y_pos = [y[i] for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
 
-    x_neg = [i for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
+    x_neg = [i + cut for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
     y_neg = [y[i] for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
 
     positive_list, negative_list = [], []
