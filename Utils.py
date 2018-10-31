@@ -233,8 +233,8 @@ def plot_distance_improvement(filename):
     plt.bar(x2, y2, color='b', linewidth=0)
     plt.bar(x3, y3, color='m', linewidth=0)
     plt.bar(x4, y4, color='r', linewidth=0)
-    plt.xlabel('#Case')
-    plt.ylabel('Rank')
+    plt.xlabel('Case')
+    plt.ylabel('Rank Change')
     plt.savefig('{:s}/{:s}_bar'.format(path, name))
 
 
