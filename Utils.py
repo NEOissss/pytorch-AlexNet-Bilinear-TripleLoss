@@ -214,20 +214,6 @@ def plot_distance_improvement(filename):
     y4 = sorted([y[i] for i in range(k) if baseline_rank[i] == 9 and y[i] < 0], reverse=True)
     x4 = list(range(j, j + len(y4)))
 
-    positive_list, negative_list = [], []
-    for i in np.array(y1).argsort()[::-1]:
-        positive_list.append([x1[i], baseline[x1[i]-cut].argmin(), y1[i]])
-    for i in np.array(y2).argsort():
-        negative_list.append([x2[i], metric[x2[i]-cut].argmin(), y2[i]])
-
-    with open(path + '/positive_list.csv', 'w') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerows(positive_list)
-
-    with open(path + '/negative_list.csv', 'w') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerows(negative_list)
-
     plt.clf()
     plt.bar(x1, y1, color='g', linewidth=0)
     plt.bar(x2, y2, color='b', linewidth=0)
@@ -236,6 +222,26 @@ def plot_distance_improvement(filename):
     plt.xlabel('Case')
     plt.ylabel('Rank Change')
     plt.savefig('{:s}/{:s}_bar'.format(path, name))
+
+    x_pos = [i for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
+    y_pos = [y[i] for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
+
+    x_neg = [i for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
+    y_neg = [y[i] for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
+
+    positive_list, negative_list = [], []
+    for i in np.array(y_pos).argsort()[::-1]:
+        positive_list.append([x_pos[i], baseline[x_pos[i] - cut].argmin(), y_pos[i]])
+    for i in np.array(y_neg).argsort():
+        negative_list.append([x_neg[i], metric[x_neg[i] - cut].argmin(), y_neg[i]])
+
+    with open(path + '/positive_list.csv', 'w') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerows(positive_list)
+
+    with open(path + '/negative_list.csv', 'w') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerows(negative_list)
 
 
 # Pack and plots
