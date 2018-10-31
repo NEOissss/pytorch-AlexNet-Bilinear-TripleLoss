@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from pytorch.SUN360Dataset import Sun360Dataset
+from SUN360Dataset import Sun360Dataset
 
 
 class MetricTrplet(torch.nn.Module):
@@ -202,16 +202,16 @@ def main():
     #     raise AttributeError('--weight_decay parameter must > 0.')
 
     print('====Exp details====')
-    print('Net: ' + parser.net)
-    print('Margin: {:.1f}'.format(parser.margin))
-    print('Validation: ' + str(parser.valid))
-    print('Pretrained parameters: ' + str(parser.param))
-    print('#Epoch: {:d}, #Batch: {:d}'.format(parser.epoch, parser.batch))
-    print('Learning rate: {:f}\n'.format(parser.lr))
+    print('Net: ' + args.net)
+    print('Margin: {:.1f}'.format(args.margin))
+    print('Validation: ' + str(args.valid))
+    print('Pretrained parameters: ' + str(args.param))
+    print('#Epoch: {:d}, #Batch: {:d}'.format(args.epoch, args.batch))
+    print('Learning rate: {:f}\n'.format(args.lr))
 
-    ml = MetricTripletManager(net=parser.net, val=parser.valid, margin=parser.margin, lr=parser.lr,
-                              batch=parser.batch, param_path=parser.param, ver=parser.version)
-    ml.train(epoch=parser.epoch, verbose=parser.verbose)
+    ml = MetricTripletManager(net=args.net, val=args.valid, margin=args.margin, lr=args.lr,
+                              batch=args.batch, param_path=args.param, ver=args.version)
+    ml.train(epoch=args.epoch, verbose=args.verbose)
     ml.test()
 
 

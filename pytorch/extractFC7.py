@@ -2,7 +2,7 @@ import os
 import torch
 import torchvision.models as models
 from torch.utils.data import DataLoader
-from pytorch.SUN360Dataset import Sun360Dataset
+from SUN360Dataset import Sun360Dataset
 
 
 class AlexFeature(torch.nn.Module):
