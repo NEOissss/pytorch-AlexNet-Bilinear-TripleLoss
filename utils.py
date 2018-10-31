@@ -253,7 +253,7 @@ def opt_all(path='./'):
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print('Usage: python3 Utils.py pack [path] OR python3 Utils.py plot <dir1, dir2, ...>')
+        print('Usage: python3 utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')
     else:
         if sys.argv[1] == 'pack':
             if len(sys.argv) == 2:
@@ -261,8 +261,8 @@ if __name__ == '__main__':
             elif len(sys.argv) == 3:
                 opt_all(sys.argv[2])
             else:
-                print('Usage: python3 Utils.py pack [path] OR python3 Utils.py plot <dir1, dir2, ...>')
+                print('Usage: python3 utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')
         elif sys.argv[1] == 'plot' and len(sys.argv) > 2:
             plot_stats(sys.argv[2:])
         else:
-            print('Usage: python3 Utils.py pack [path] OR python3 Utils.py plot <dir1, dir2, ...>')
+            print('Usage: python3 utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')
