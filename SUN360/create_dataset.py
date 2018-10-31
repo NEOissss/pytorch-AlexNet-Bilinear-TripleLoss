@@ -19,7 +19,7 @@ def crop_img(img_path):
     im = cv2.imread(img_path)
     height, width = im.shape[:2]
     crop_height = int(height * CROP_RATIO)
-    #im = im[crop_height:-crop_height, :]
+    # im = im[crop_height:-crop_height, :]
     rand_range = int(((height - 2*crop_height)//2 - SIZE//2) * RAND_RATIO)
     left_x = crop_height + (height - 2*crop_height)//2 - SIZE//2 + random.randint(-rand_range, rand_range)
     left_y = width//2 - width//4 - SIZE//2 + random.randint(-rand_range, rand_range)
@@ -168,8 +168,8 @@ def generate_dataset(part_A, part_B, train=True):
             img_list[0] = crop_img_path
             #cv2.imwrite(task_path+'/'+str_i+"/reference" + ".jpg", im_A_right[i])
 
-            gt_id = random.randint(0, num_choice-1) # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
-            gt_id = random.randint(0, num_choice-1) # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
+            gt_id = random.randint(0, num_choice-1)  # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
+            gt_id = random.randint(0, num_choice-1)  # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
             crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/L.jpg'
             img_list[1][gt_id] = crop_img_path
             #cv2.imwrite(task_path+'/'+str_i+"/choice_" + str(gt_id) + ".jpg", im_A_left[i])
@@ -196,28 +196,32 @@ def generate_dataset(part_A, part_B, train=True):
 
     print(len(gt_res), 'samples generated.')
 
-    with open(gt_path,"w+") as my_csv:            # writing the file as my_csv
-        csvWriter = csv.writer(my_csv,delimiter=',')  # using the csv module to write the file
-        csvWriter.writerows(gt_res)
+    with open(gt_path, "w+") as my_csv:            # writing the file as my_csv
+        csv_writer = csv.writer(my_csv, delimiter=',')  # using the csv module to write the file
+        csv_writer.writerows(gt_res)
 
     return 0
 
 
 def main():
-    image_name_list = glob.glob(PATH + '**/*.jpg*', recursive = True) # the whole image dataset, 118287 images
-    train_set, test_set = train_test_split(image_name_list, test_size = 0.51)# train-99,192 images, test-103,242 images.
-    train_part_A, train_part_B = train_test_split(train_set, test_size = 0.7)# train_part_A-29,757, train_part_B-69,435 images
-    test_part_A, test_part_B = train_test_split(test_set, test_size = 0.7) # test_part_A-30,972, test_part_B-72,270 images
+    # the whole image dataset, 57141 images
+    image_name_list = glob.glob(PATH + '**/*.jpg*', recursive=True)
+    # train - 27,999 images, test - 29,142 images.
+    train_set, test_set = train_test_split(image_name_list, test_size=0.51)
+    # train_part_A - 8,399 images, train_part_B - 19,600 images
+    train_part_a, train_part_b = train_test_split(train_set, test_size=0.7)
+    # test_part_A - 8,742 images, test_part_B - 20,400 images
+    test_part_a, test_part_b = train_test_split(test_set, test_size=0.7)
 
     print('Train set size: ', len(train_set))
     print('Train set size: ', len(test_set))
-    print('Train set part A size: ', len(train_part_A))
-    print('Train set part B size: ', len(train_part_B))
-    print('Test set part A size: ', len(test_part_A))
-    print('Test set part B size: ', len(test_part_B))
+    print('Train set part A size: ', len(train_part_a))
+    print('Train set part B size: ', len(train_part_b))
+    print('Test set part A size: ', len(test_part_a))
+    print('Test set part B size: ', len(test_part_b))
 
-    generate_dataset(train_part_A, train_part_B)
-    generate_dataset(test_part_A, test_part_B, False)
+    generate_dataset(train_part_a, train_part_a)
+    generate_dataset(test_part_a, test_part_b, False)
 
 
 if __name__ == '__main__':

@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime
 import numpy as np
 import torch
@@ -34,7 +35,7 @@ class FullMetricTriplet(torch.nn.Module):
 
 
 class MetricTripletManager(object):
-    def __init__(self, val=True, batch=1, lr=1e-3, margin=1.0, param_path=None, net='Metric'):
+    def __init__(self, val=True, batch=1, lr=1e-3, margin=1.0, param_path=None, net='Metric', ver=0):
         if net == 'FullMetric':
             self._net = torch.nn.DataParallel(FullMetricTriplet()).cuda()
         elif net == 'Metric':
@@ -57,7 +58,7 @@ class MetricTripletManager(object):
 
         # Load data
         root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
-        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root)
+        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root, ver=ver)
 
     def train(self, epoch=1, verbose=None):
         """Train the network."""
@@ -133,7 +134,7 @@ class MetricTripletManager(object):
         self._net.train()
         return num_correct/num_total
 
-    def _data_loader(self, root):
+    def _data_loader(self, root, ver):
         train_data = 'train'
         test_data = 'test'
         val_data = 'test'
@@ -141,9 +142,9 @@ class MetricTripletManager(object):
         val_cut = [0, 100]
         print('Train dataset: {:s}, test dataset: {:s}{:s}, val dataset: {:s}{:s}'
               .format(train_data, test_data, str(test_cut), val_data, str(val_cut)))
-        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, opt='fc7')
-        test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, opt='fc7')
-        val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, opt='fc7')
+        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, opt='fc7', version=ver)
+        test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, opt='fc7', version=ver)
+        val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, opt='fc7', version=ver)
         train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
         test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch)
         val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch)
@@ -165,28 +166,53 @@ class MetricTripletManager(object):
 
 
 def main():
-    ini_param = None
-    val = True
-    batch_size = 128
-    epoch_num = 1
-    learning_rate = 0.001
-    net_name = 'Metric'
-    verbose = 2
-    margin = 5
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--net', dest='net', type=str, default='Metric', help='Choose the network.')
+    parser.add_argument('--param', dest='param', type=str, default=None, help='Initialize model parameters.')
 
-    print('\n====Exp details====')
-    print('Net: ' + net_name)
-    print('Margin: {:.1f}'.format(margin))
-    print('Validation: ' + str(val))
-    print('Pretrained parameters: ' + str(ini_param))
-    print('#Epoch: {:d}, #Batch: {:d}'.format(epoch_num, batch_size))
-    print('Learning rate: {:.4f}\n'.format(learning_rate))
+    parser.add_argument('--lr', dest='lr', type=float, default=0.001, help='Base learning rate for training.')
+    parser.add_argument('--margin', dest='margin', type=float, default=5.0, help='Margin for triplet loss.')
 
-    metric = MetricTripletManager(val=val, margin=margin, lr=learning_rate, batch=batch_size, param_path=ini_param, net=net_name)
-    path = metric.train(epoch=epoch_num, verbose=verbose)
-    metric.test(param_path=path)
-    # bcnn.test()
+    parser.add_argument('--batch', dest='batch', type=int, default=256, help='Batch size.')
+    parser.add_argument('--epoch', dest='epoch', type=int, default=10, help='Epochs for training.')
+    parser.add_argument('--version', dest='version', type=int, default=0, help='Choose dataset version.')
+    parser.add_argument('--verbose', dest='verbose', type=int, default=1, help='Printing frequency setting.')
 
+    parser.add_argument('--valid', dest='valid', action='store_true', help=' Use validation.')
+    parser.add_argument('--no-valid', dest='valid', action='store_false', help='Do not use validation.')
+    parser.set_defaults(valid=True)
+
+    # parser.add_argument('--decay', dest='decay', type=float, required=True, help='Weight decay.')
+
+    args = parser.parse_args()
+
+    if args.net not in ['Metric', 'FullMetric']:
+        raise AttributeError('--net parameter must be \'Metric\' or \'FullMetric\'.')
+    if args.lr <= 0:
+        raise AttributeError('--lr parameter must > 0.')
+    if args.margin <= 0:
+        raise AttributeError('--margin parameter must > 0.')
+    if args.batch <= 0:
+        raise AttributeError('--batch parameter must > 0.')
+    if args.epoch <= 0:
+        raise AttributeError('--epoch parameter must > 0.')
+    if args.version not in [0, 1, 2]:
+        raise AttributeError('--version parameter must be in [0, 1, 2].')
+    # if args.weight_decay <= 0:
+    #     raise AttributeError('--weight_decay parameter must > 0.')
+
+    print('====Exp details====')
+    print('Net: ' + parser.net)
+    print('Margin: {:.1f}'.format(parser.margin))
+    print('Validation: ' + str(parser.valid))
+    print('Pretrained parameters: ' + str(parser.param))
+    print('#Epoch: {:d}, #Batch: {:d}'.format(parser.epoch, parser.batch))
+    print('Learning rate: {:f}\n'.format(parser.lr))
+
+    ml = MetricTripletManager(net=parser.net, val=parser.valid, margin=parser.margin, lr=parser.lr,
+                              batch=parser.batch, param_path=parser.param, ver=parser.version)
+    ml.train(epoch=parser.epoch, verbose=parser.verbose)
+    ml.test()
 
 
 if __name__ == '__main__':
