@@ -197,15 +197,22 @@ def plot_distance_improvement(filename):
 
     y = metric_rank - baseline_rank
     k = metric.shape[0]
-    # 1: False->True, 2: True->False, 3: Increase 4: Decrease
-    x1 = [i+cut for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
-    y1 = [y[i] for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
-    x2 = [i+cut for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
-    y2 = [y[i] for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
-    x3 = [i+cut for i in range(k) if metric_rank[i] != 9 and y[i] > 0]
-    y3 = [y[i] for i in range(k) if metric_rank[i] != 9 and y[i] > 0]
-    x4 = [i+cut for i in range(k) if baseline_rank[i] != 9 and y[i] < 0]
-    y4 = [y[i] for i in range(k) if baseline_rank[i] != 9 and y[i] < 0]
+    j = 0
+    # 1: False->True, 2: Increase, 3: Decrease, 4: True->False
+    y1 = sorted([y[i] for i in range(k) if metric_rank[i] == 9 and y[i] > 0])
+    x1 = list(range(j, j + len(y1)))
+    j += len(y1)
+
+    y2 = sorted([y[i] for i in range(k) if metric_rank[i] != 9 and y[i] > 0])
+    x2 = list(range(j, j + len(y2)))
+    j += len(y2)
+
+    y3 = sorted([y[i] for i in range(k) if baseline_rank[i] != 9 and y[i] < 0], reverse=True)
+    x3 = list(range(j, j + len(y3)))
+    j += len(y3)
+
+    y4 = sorted([y[i] for i in range(k) if baseline_rank[i] == 9 and y[i] < 0], reverse=True)
+    x4 = list(range(j, j + len(y4)))
 
     positive_list, negative_list = [], []
     for i in np.array(y1).argsort()[::-1]:
@@ -221,6 +228,7 @@ def plot_distance_improvement(filename):
         writer = csv.writer(csv_file)
         writer.writerows(negative_list)
 
+    plt.clf()
     plt.bar(x1, y1, color='g', linewidth=0)
     plt.bar(x2, y2, color='r', linewidth=0)
     plt.bar(x3, y3, color='b', linewidth=0)
