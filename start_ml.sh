@@ -12,4 +12,4 @@ verbose='--verbose 1'
 valid='--valid'
 #valid='--no-valid'
 
-python3 cnn.py $net $param $lr $margin $epoch $batch $version $verbose $valid
+python3 pytroch/ml.py $net $param $lr $margin $epoch $batch $version $verbose $valid

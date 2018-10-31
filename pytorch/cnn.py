@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torchvision.models as models
 from torch.utils.data import DataLoader
-from SUN360Dataset import Sun360Dataset
+from pytorch.SUN360Dataset import Sun360Dataset
 
 
 class TripletAlex(torch.nn.Module):
