@@ -89,7 +89,7 @@ class BilinearTripletAlex(torch.nn.Module):
 class AlexManager(object):
     def __init__(self, root, data_opts, freeze='part', val=True, batch=1, lr=1e-3, decay=0,
                  margin=1.0, param_path=None, net='Triplet'):
-        if net == 'BilinearTriplet':
+        if net == 'Bilinear':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
         elif net == 'Triplet':
             self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
@@ -247,8 +247,8 @@ def main():
 
     args = parser.parse_args()
 
-    if args.net not in ['Triplet', 'BilinearTriplet']:
-        raise AttributeError('--net parameter must be \'Triplet\' or \'BilinearTriplet\'.')
+    if args.net not in ['Triplet', 'Bilinear']:
+        raise AttributeError('--net parameter must be \'Triplet\' or \'Bilinear\'.')
     if args.lr <= 0:
         raise AttributeError('--lr parameter must > 0.')
     if args.decay <= 0:

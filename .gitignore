@@ -1,1 +1,9 @@
-.idea/
+.idea
+Triplet|*
+Bilinear|*
+Metric|*
+FullMetric|*
+*.out
+*.npy
+*.png
+*.csv
