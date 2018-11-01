@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import torchvision.models as models
 from torch.utils.data import DataLoader
@@ -20,7 +21,8 @@ class AlexFeature(torch.nn.Module):
         return x
 
 
-def main():
+def main(ver=0):
+    dataset = ['train_v{:d}'.format(ver), 'test_v{:d}'.format(ver)]
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
     path = 'IMGs_fc7/'
     train_dataset = Sun360Dataset(root=root, train=False, dataset='train')
@@ -34,20 +36,23 @@ def main():
     if not os.path.exists(root + path):
         os.mkdir(root + path)
 
-    for i in ['train_v0', 'test_v0']:
+    for i in dataset:
         if not os.path.exists(root + path + i):
             os.mkdir(root + path + i)
 
     for i, data in enumerate(train_dataloader):
         feat = net(data.view(-1, 3, 227, 227))
-        torch.save(feat, root + path + 'train_v0/' + '0'*(9-len(str(i))) + str(i) + '.pt')
+        torch.save(feat, root + path + dataset[0] + '/' + '0'*(9-len(str(i))) + str(i) + '.pt')
     print('Extract {:d} training data features'.format(i+1))
 
     for i, data in enumerate(test_dataloader):
         feat = net(data.view(-1, 3, 227, 227))
-        torch.save(feat, root + path + 'test_v0/' + '0'*(9-len(str(i))) + str(i) + '.pt')
+        torch.save(feat, root + path + dataset[1] + '/' + '0'*(9-len(str(i))) + str(i) + '.pt')
     print('Extract {:d} testing data features'.format(i+1))
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 2:
+        main(ver=int(sys.argv[1]))
+    else:
+        main()

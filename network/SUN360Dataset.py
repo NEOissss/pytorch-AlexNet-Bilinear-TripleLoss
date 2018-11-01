@@ -4,6 +4,7 @@ This module is served as torchvision.datasets to load SUN360 Half & Half Benchma
 """
 
 import os
+import sys
 import time
 import csv
 import json
@@ -15,7 +16,7 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class Sun360Dataset(Dataset):
-    def __init__(self, root, train=True, dataset='train', flip=True, version=0, cut=None, opt='pt'):
+    def __init__(self, root, train=True, dataset='train', flip=False, version=0, cut=None, opt='pt'):
         super(Sun360Dataset, self).__init__()
         self.root = root
         self.train = train
@@ -103,23 +104,23 @@ class Sun360Dataset(Dataset):
             torch.save(tensor, file_path)
 
 
-def init_test():
+def init_test(ver=0):
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, dataset='train', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='train', version=ver)
     print('Load train dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, dataset='test', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='test', version=ver)
     print('Load test dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, dataset='train', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='train', version=ver)
     print('Load train dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
     start = time.time()
-    a = Sun360Dataset(root, train=True, dataset='test', flip=False, version=0)
+    a = Sun360Dataset(root, train=True, dataset='test', version=ver)
     print('Load test dataset in {:.2f} seconds, total length: {:d}'.format(time.time() - start, len(a)))
 
 
@@ -133,4 +134,7 @@ def test():
 
 
 if __name__ == '__main__':
-    test()
+    if len(sys.argv) == 2:
+        init_test(ver=int(sys.argv[1]))
+    else:
+        init_test()

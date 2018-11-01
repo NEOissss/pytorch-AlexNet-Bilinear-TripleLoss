@@ -1,9 +1,10 @@
 import os
+import sys
 import shutil
 from cnn import AlexManager
 
 
-def main(test=True):
+def main(test=True, ver=0):
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
     if test:
         dataset = 'test'
@@ -12,7 +13,7 @@ def main(test=True):
     data_opts = {'train': {'set': 'train', 'cut': [None, None]},
                  'test': {'set': dataset, 'cut': [None, None]},
                  'val': {'set': 'test', 'cut': [None, None]},
-                 'ver': 0}
+                 'ver': ver}
 
     if not os.path.exists('baseline'):
         os.mkdir('baseline')
@@ -25,4 +26,7 @@ def main(test=True):
 
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 2:
+        main(ver=int(sys.argv[1]))
+    else:
+        main()
