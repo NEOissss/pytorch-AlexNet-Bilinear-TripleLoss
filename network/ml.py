@@ -1,3 +1,6 @@
+# Metric learning on AlexNet FC7 features with triplet loss
+# Geng Luo
+
 import argparse
 from datetime import datetime
 import numpy as np
