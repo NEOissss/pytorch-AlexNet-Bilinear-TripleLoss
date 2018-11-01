@@ -1,1 +1,11 @@
-AlexNet with Bilinear pooling and triple loss for SUN360 half and half benchmark
+AlexNet with Bilinear pooling and triple loss for SUN360 half and half benchmark.
+
+Usage:
+
+start_cd.sh:  create dataset
+start_bl.sh:  calculate l2 baseline
+start_cnn.sh: run triplet network
+start_ml.sh:  run metric learning
+
+python3 network/utils.py pack: analyze log, pack result and plot scatters.
+python3 network/utils.py plot [dirs...]: plots training stats.

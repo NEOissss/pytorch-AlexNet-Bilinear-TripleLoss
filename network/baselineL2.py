@@ -22,7 +22,7 @@ def main(test=True, ver=0):
     path = alex.test()
     new_path = 'baseline/baseline_{:s}.npy'.format(dataset)
     shutil.move(path, new_path)
-    print('Baseline L2 results for {:s} dataset saved at {:s}'.format(dataset, new_path))
+    print('Baseline L2 results for {:s} dataset version {:d} saved at {:s}'.format(dataset, ver, new_path))
 
 
 if __name__ == '__main__':
