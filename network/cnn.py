@@ -1,6 +1,3 @@
-# AlexNet triplet loss with bilinear layer
-# Geng Luo
-
 import argparse
 from datetime import datetime
 import numpy as np

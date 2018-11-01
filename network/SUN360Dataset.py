@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*
 """
 This module is served as torchvision.datasets to load SUN360 Half & Half Benchmark.
 """
