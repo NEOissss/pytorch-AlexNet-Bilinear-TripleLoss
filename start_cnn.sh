@@ -14,4 +14,4 @@ freeze='--freeze'
 valid='--valid'
 #valid='--no-valid'
 
-python3 pytorch/cnn.py $net $param $lr $decay $margin $epoch $batch $version $verbose $freeze $valid
+python3 network/cnn.py $net $param $lr $decay $margin $epoch $batch $version $verbose $freeze $valid

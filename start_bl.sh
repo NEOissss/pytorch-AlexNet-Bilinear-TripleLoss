@@ -1,3 +1,3 @@
 #!/bin/sh
 
-python3 pytorch/baselineL2.py
+python3 network/baselineL2.py
