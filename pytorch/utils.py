@@ -11,16 +11,17 @@ import numpy as np
 def analyze_log(filename):
     with open(filename, 'r') as fp:
         content = fp.read()
-        match_param = re.search(r'parameters\ssaved:\s\w+-\w+-\w+', content)
+        match_param = re.search(r'parameters\ssaved:.+', content)
         match_train = re.search(r'train_stats_\d+\.npy', content)
         match_test = re.search(r'test_result_\d+\.npy', content)
-        match_test_accu = re.search(r'Test\saccuracy:\s\d\.\d+', content)
-        match_net = re.search(r'Net:\s\w+', content)
+        match_test_accu = re.search(r'Test\saccuracy:.+', content)
+        match_net = re.search(r'Net:.+', content)
         match_margin = re.search(r'Margin:\s\d+\.\d+', content)
-        match_freeze = re.search(r'Freeze\smode:\s\w+', content)
+        match_freeze = re.search(r'Freeze\smode:.+', content)
         match_epoch = re.search(r'#Epoch:\s\d+', content)
         match_batch = re.search(r'#Batch:\s\d+', content)
-        match_lr = re.search(r'rate:\s\d+\.\d+', content)
+        match_lr = re.search(r'rate:.+', content)
+        match_decay = re.search(r'decay:.+', content)
 
     try:
         res = {'net': match_net.group().split()[-1], 'margin': match_margin.group().split()[-1]}
@@ -31,6 +32,7 @@ def analyze_log(filename):
         res['epoch'] = match_epoch.group().split()[-1]
         res['batch'] = match_batch.group().split()[-1]
         res['lr'] = match_lr.group().split()[-1]
+        res['decay'] = match_decay.group().split()[-1] if match_decay else 0
         res['test_accu'] = match_test_accu.group().split()[-1][:5]
         res['param'] = match_param.group().split()[-1] if match_param else None
         res['train'] = match_train.group() if match_train else None
@@ -49,18 +51,16 @@ def pack_results(path):
             if not res:
                 print('Unknown log content: {:s}'.format(fname))
                 continue
-            # Net-Freeze-Margin-Epoch-Batch-LR-k-Accuracy
-            dir_path = None
-            for k in range(100):
-                dir_path = '{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:s}'.format(
-                    res['net'], res['freeze'], res['margin'], res['epoch'],
-                    res['batch'], res['lr'], str(k), res['test_accu'])
-                if not os.path.exists(dir_path):
-                    os.mkdir(dir_path)
-                    dir_list.append(dir_path)
-                    break
-            if not dir_path:
-                return
+            # Net|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
+            dir_path = '{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
+                        res['net'], res['freeze'], res['margin'], res['epoch'], res['batch'],
+                        float(res['lr']), float(res['decay']), res['test_accu'])
+            if not os.path.exists(dir_path):
+                os.mkdir(dir_path)
+                dir_list.append(dir_path)
+            else:
+                print(dir_path + ' already exists!')
+                continue
 
             shutil.move(fname, '{:s}/{:s}'.format(dir_path, fname))
             if res['param'] and os.path.exists(res['param']):
@@ -90,7 +90,9 @@ def plot_stats(log_lists):
             res = analyze_log(i)
             y = res['train']
 
-        x = '{:s}-{:s}-{:s}-{:s}-{:s}'.format(res['net'], res['freeze'], res['margin'], res['batch'], res['lr'])
+        x = '{:s}-{:s}-{:s}-{:s}-{:.0e}-{:.0e}'.format(res['net'], res['freeze'],
+                                                       res['margin'], res['batch'],
+                                                       float(res['lr']), float(res['decay']))
         labels.append(x)
         stats.append(np.load(y))
 

@@ -273,7 +273,8 @@ def main():
     print('Pretrained parameters: ' + str(args.param))
     print('Freeze mode: ' + str(args.freeze))
     print('#Epoch: {:d}, #Batch: {:d}'.format(args.epoch, args.batch))
-    print('Learning rate: {:f}\n'.format(args.lr))
+    print('Learning rate: {:.0e}'.format(args.lr))
+    print('Weight decay: {:.0e}\n'.format(args.decay))
 
     cnn = AlexManager(root=root, data_opts=data_opts, net=args.net, freeze=args.freeze, val=args.valid,
                       margin=args.margin, lr=args.lr, decay=args.decay, batch=args.batch, param_path=args.param)
