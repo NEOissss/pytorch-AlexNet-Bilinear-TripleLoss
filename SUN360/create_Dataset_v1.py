@@ -4,22 +4,32 @@ import cv2
 import csv
 import glob
 import random
-import pickle
 import json
 from sklearn.model_selection import train_test_split
 
 ROOT_PATH = '/mnt/nfs/scratch1/gluo/SUN360/'
-PATH = ROOT_PATH + 'SUN360_9104x4552/'
+CROP_IMG_PATH = ROOT_PATH + 'HalfHalf/IMGs/'
+
+
+def get_img_hist(part):
+    hist_left, hist_right = [], []
+
+    for i in range(max(len(part), 120)):
+        im_l = cv2.imread(part[i] + '/L.jpg')
+        im_r = cv2.imread(part[i] + '/R.jpg')
+
+        hist_left.append(cv2.calcHist([im_l], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256]))
+        hist_right.append(cv2.calcHist([im_r], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256]))
+
+    return hist_left, hist_right
 
 
 def generate_dataset(part_A, part_B, train=True):
     if train:
-        prefix = 'train'
         task_path = ROOT_PATH + 'HalfHalf/task_train_v1'
         gt_path = ROOT_PATH + 'HalfHalf/gt_train_v1.csv'
         print('Start generate half&half training set...')
     else:
-        prefix = 'test'
         task_path = ROOT_PATH + 'HalfHalf/task_test_v1'
         gt_path = ROOT_PATH + 'HalfHalf/gt_test_v1.csv'
         print('Start generate half&half testing set...')
@@ -27,18 +37,12 @@ def generate_dataset(part_A, part_B, train=True):
     num_A = len(part_A)
     num_B = len(part_B)
 
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_A_left.pickle', 'rb') as f:
-        hist_A_left = pickle.load(f)
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_A_right.pickle', 'rb') as f:
-        hist_A_right = pickle.load(f)
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_B_left.pickle', 'rb') as f:
-        hist_B_left = pickle.load(f)
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_B_right.pickle', 'rb') as f:
-        hist_B_right = pickle.load(f)
+    hist_A_left, hist_A_right = get_img_hist(part_A)
+    hist_B_left, hist_B_right = get_img_hist(part_B)
 
     print('Anticipating #sample: ', num_A)
 
-    compare_method = 3 # means that the smaller the compareHist, the similar
+    compare_method = 3  # means that the smaller the compareHist, the similar
     num_choice = 10
     K = 1000
 
@@ -78,7 +82,7 @@ def generate_dataset(part_A, part_B, train=True):
             choices_minus_1 = matchest_topK[arg_choices_minus_1]
             task_choices_minus_1.append(choices_minus_1 * (-1))  # choices in B_left, negative value
 
-    samples_num = 16 # take samples_num of samples to show the results
+    samples_num = 16  # take samples_num of samples to show the results
     len_sample_id = 9  # e.g 000000666
 
     gt_res = []
@@ -90,55 +94,41 @@ def generate_dataset(part_A, part_B, train=True):
         str_i = '0'*(len_sample_id-len(str(i))) + str(i)
         img_list = ['', ['' for i in range(10)]]
 
-        if task_ref[i] < 0 or (task_ref[i] == 0 and sum(task_choices_minus_1[i])>0): # ref in A_left, ground_truth in A_right, target choices in B_right
-            # if not os.path.exists(task_path+'/'+str_i):
-            #     os.mkdir(task_path+'/'+str_i)
-            crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/L.jpg'
+        if task_ref[i] < 0 or (task_ref[i] == 0 and sum(task_choices_minus_1[i]) > 0):
+            crop_img_path = part_A[i].split('/')[-1] + '/L.jpg'
             img_list[0] = crop_img_path
-            # cv2.imwrite(task_path+'/'+str_i+"/reference" + ".jpg", im_A_left[i])
 
-            gt_id = random.randint(0, num_choice-1) # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
-            crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/R.jpg'
+            gt_id = random.randint(0, num_choice-1)  # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
+            crop_img_path = part_A[i].split('/')[-1] + '/R.jpg'
             img_list[1][gt_id] = crop_img_path
-            # cv2.imwrite(task_path+'/'+str_i+"/choice_" + str(gt_id) + ".jpg", im_A_right[i])
 
             gt_res.append([str_i, str(gt_id)])
 
             for choice_i in range(num_choice):
                 if choice_i < gt_id:
-                    crop_img_path = part_B[task_choices_minus_1[i][choice_i]].split('/')[-1].split('.')[0] + '/R.jpg'
+                    crop_img_path = part_B[task_choices_minus_1[i][choice_i]].split('/')[-1] + '/R.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_right[task_choices_minus_1[i][choice_i]])
                 elif choice_i > gt_id:
-                    crop_img_path = part_B[task_choices_minus_1[i][choice_i-1]].split('/')[-1].split('.')[0] + '/R.jpg'
+                    crop_img_path = part_B[task_choices_minus_1[i][choice_i-1]].split('/')[-1] + '/R.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_right[task_choices_minus_1[i][choice_i-1]])
 
-
-        elif task_ref[i] > 0 or (task_ref[i] == 0 and sum(task_choices_minus_1[i])<0) : # ref in A_right, ground_truth in A_left, target choices in B_left
-            # if not os.path.exists(task_path+'/'+str_i):
-            #     os.mkdir(task_path+'/'+str_i)
-            crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/R.jpg'
+        elif task_ref[i] > 0 or (task_ref[i] == 0 and sum(task_choices_minus_1[i]) < 0):
+            crop_img_path = part_A[i].split('/')[-1] + '/R.jpg'
             img_list[0] = crop_img_path
-            #cv2.imwrite(task_path+'/'+str_i+"/reference" + ".jpg", im_A_right[i])
 
-            gt_id = random.randint(0, num_choice-1) # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
-            gt_id = random.randint(0, num_choice-1) # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
-            crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/L.jpg'
+            gt_id = random.randint(0, num_choice-1)  # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
+            crop_img_path = part_A[i].split('/')[-1] + '/L.jpg'
             img_list[1][gt_id] = crop_img_path
-            #cv2.imwrite(task_path+'/'+str_i+"/choice_" + str(gt_id) + ".jpg", im_A_left[i])
 
             gt_res.append([str_i, str(gt_id)])
 
             for choice_i in range(num_choice):
                 if choice_i < gt_id:
-                    crop_img_path = part_B[task_choices_minus_1[i][choice_i]*(-1)].split('/')[-1].split('.')[0] + '/L.jpg'
+                    crop_img_path = part_B[task_choices_minus_1[i][choice_i]*(-1)].split('/')[-1] + '/L.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_left[task_choices_minus_1[i][choice_i] * (-1)])
                 elif choice_i > gt_id:
-                    crop_img_path = part_B[task_choices_minus_1[i][choice_i-1]*(-1)].split('/')[-1].split('.')[0] + '/L.jpg'
+                    crop_img_path = part_B[task_choices_minus_1[i][choice_i-1]*(-1)].split('/')[-1] + '/L.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_left[task_choices_minus_1[i][choice_i-1] * (-1)])
 
         with open(task_path+'/'+str_i+'.json', 'w') as f:
             json.dump(img_list, f)
@@ -150,17 +140,18 @@ def generate_dataset(part_A, part_B, train=True):
 
     print(len(gt_res), 'samples generated.')
 
-    with open(gt_path,"w+") as my_csv:            # writing the file as my_csv
-        csvWriter = csv.writer(my_csv,delimiter=',')  # using the csv module to write the file
-        csvWriter.writerows(gt_res)
+    with open(gt_path, "w+") as my_csv:            # writing the file as my_csv
+        csv_writer = csv.writer(my_csv, delimiter=',')  # using the csv module to write the file
+        csv_writer.writerows(gt_res)
 
     return 0
 
+
 def main():
-    image_name_list = glob.glob(PATH + '**/*.jpg*', recursive = True) # the whole image dataset, 118287 images
-    train_set, test_set = train_test_split(image_name_list, test_size = 0.51)# train-99,192 images, test-103,242 images.
-    train_part_A, train_part_B = train_test_split(train_set, test_size = 0.7)# train_part_A-29,757, train_part_B-69,435 images
-    test_part_A, test_part_B = train_test_split(test_set, test_size = 0.7) # test_part_A-30,972, test_part_B-72,270 images
+    image_name_list = glob.glob(CROP_IMG_PATH + '*')
+    train_set, test_set = train_test_split(image_name_list, test_size=0.51)
+    train_part_A, train_part_B = train_test_split(train_set, test_size=0.7)
+    test_part_A, test_part_B = train_test_split(test_set, test_size=0.7)
 
     print('Train set size: ', len(train_set))
     print('Train set size: ', len(test_set))
@@ -171,6 +162,7 @@ def main():
 
     generate_dataset(train_part_A, train_part_B)
     generate_dataset(test_part_A, test_part_B, False)
+
 
 if __name__ == '__main__':
     main()

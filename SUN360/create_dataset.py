@@ -31,7 +31,7 @@ def crop_img(img_path):
     return left_crop, right_crop
 
 
-def get_img_list(part):
+def get_img_hist(part):
     hist_left, hist_right = [], []
 
     for i in range(max(len(part), 120)):
@@ -66,21 +66,8 @@ def generate_dataset(part_A, part_B, train=True):
     num_A = len(part_A)
     num_B = len(part_B)
 
-    hist_A_left, hist_A_right = get_img_list(part_A)
-    hist_B_left, hist_B_right = get_img_list(part_B)
-
-    if train:
-        prefix = 'train'
-    else:
-        prefix = 'test'
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_A_left.pickle', 'wb') as f:
-        pickle.dump(hist_A_left, f)
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_A_right.pickle', 'wb') as f:
-        pickle.dump(hist_A_right, f)
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_B_left.pickle', 'wb') as f:
-        pickle.dump(hist_B_left, f)
-    with open(ROOT_PATH+'HalfHalf/'+prefix+'hist_B_right.pickle', 'wb') as f:
-        pickle.dump(hist_B_right, f)
+    hist_A_left, hist_A_right = get_img_hist(part_A)
+    hist_B_left, hist_B_right = get_img_hist(part_B)
 
     print('Anticipating #sample: ', num_A)
 
@@ -137,16 +124,12 @@ def generate_dataset(part_A, part_B, train=True):
         img_list = ['', ['' for i in range(10)]]
 
         if task_ref[i] < 0 or (task_ref[i] == 0 and sum(task_choices_minus_1[i])>0): # ref in A_left, ground_truth in A_right, target choices in B_right
-            # if not os.path.exists(task_path+'/'+str_i):
-            #     os.mkdir(task_path+'/'+str_i)
             crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/L.jpg'
             img_list[0] = crop_img_path
-            # cv2.imwrite(task_path+'/'+str_i+"/reference" + ".jpg", im_A_left[i])
 
-            gt_id = random.randint(0, num_choice-1) # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
+            gt_id = random.randint(0, num_choice-1)  # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
             crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/R.jpg'
             img_list[1][gt_id] = crop_img_path
-            # cv2.imwrite(task_path+'/'+str_i+"/choice_" + str(gt_id) + ".jpg", im_A_right[i])
 
             gt_res.append([str_i, str(gt_id)])
 
@@ -154,25 +137,17 @@ def generate_dataset(part_A, part_B, train=True):
                 if choice_i < gt_id:
                     crop_img_path = part_B[task_choices_minus_1[i][choice_i]].split('/')[-1].split('.')[0] + '/R.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_right[task_choices_minus_1[i][choice_i]])
                 elif choice_i > gt_id:
                     crop_img_path = part_B[task_choices_minus_1[i][choice_i-1]].split('/')[-1].split('.')[0] + '/R.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_right[task_choices_minus_1[i][choice_i-1]])
 
-
-        elif task_ref[i] > 0 or (task_ref[i] == 0 and sum(task_choices_minus_1[i])<0) : # ref in A_right, ground_truth in A_left, target choices in B_left
-            # if not os.path.exists(task_path+'/'+str_i):
-            #     os.mkdir(task_path+'/'+str_i)
+        elif task_ref[i] > 0 or (task_ref[i] == 0 and sum(task_choices_minus_1[i])<0):
             crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/R.jpg'
             img_list[0] = crop_img_path
-            #cv2.imwrite(task_path+'/'+str_i+"/reference" + ".jpg", im_A_right[i])
 
-            gt_id = random.randint(0, num_choice-1)  # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
             gt_id = random.randint(0, num_choice-1)  # randomly set up gt_id from {0, 1, 2, ...., num_choice-1}
             crop_img_path = part_A[i].split('/')[-1].split('.')[0] + '/L.jpg'
             img_list[1][gt_id] = crop_img_path
-            #cv2.imwrite(task_path+'/'+str_i+"/choice_" + str(gt_id) + ".jpg", im_A_left[i])
 
             gt_res.append([str_i, str(gt_id)])
 
@@ -180,11 +155,9 @@ def generate_dataset(part_A, part_B, train=True):
                 if choice_i < gt_id:
                     crop_img_path = part_B[task_choices_minus_1[i][choice_i]*(-1)].split('/')[-1].split('.')[0] + '/L.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_left[task_choices_minus_1[i][choice_i] * (-1)])
                 elif choice_i > gt_id:
                     crop_img_path = part_B[task_choices_minus_1[i][choice_i-1]*(-1)].split('/')[-1].split('.')[0] + '/L.jpg'
                     img_list[1][choice_i] = crop_img_path
-                    #cv2.imwrite(task_path+'/'+str_i+"/choice_"+str(choice_i)+ ".jpg", im_B_left[task_choices_minus_1[i][choice_i-1] * (-1)])
 
         with open(task_path+'/'+str_i+'.pickle', 'wb') as f:
             pickle.dump(img_list, f)

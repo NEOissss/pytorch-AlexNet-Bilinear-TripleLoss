@@ -191,7 +191,7 @@ def plot_distance_improvement(filename):
         name = filename.split('.')[0]
 
     cut = 100
-    baseline = np.load('baseline/baseline_result_eval_trans_test.npy')[cut:]
+    baseline = np.load('baseline/baseline_test.npy')[cut:]
     baseline_rank = (baseline[:, :1] < baseline[:, 1:]).sum(1)
     metric_rank = (metric[:, :1] < metric[:, 1:]).sum(1)
 

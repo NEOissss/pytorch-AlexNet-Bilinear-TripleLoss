@@ -35,13 +35,15 @@ class FullMetricTriplet(torch.nn.Module):
 
 
 class MetricTripletManager(object):
-    def __init__(self, val=True, batch=1, lr=1e-3, margin=1.0, param_path=None, net='Metric', ver=0):
+    def __init__(self, root, data_opts, val=True, batch=1, lr=1e-3, decay=0, margin=1.0, param_path=None, net='Metric'):
         if net == 'FullMetric':
             self._net = torch.nn.DataParallel(FullMetricTriplet()).cuda()
         elif net == 'Metric':
             self._net = torch.nn.DataParallel(MetricTrplet()).cuda()
         else:
             raise ValueError('Unavailable net option.')
+        # print(self._net)
+
         # Load pre-trained parameters
         if param_path:
             self._load(param_path)
@@ -50,15 +52,12 @@ class MetricTripletManager(object):
         self._val = val
         self._net_name = net
         self._stats = []
-        # print(self._net)
         self._criterion = torch.nn.TripletMarginLoss(margin=margin).cuda()
-
-        # If not test
-        self._solver = torch.optim.Adam(self._net.parameters(), lr=lr)
+        self._solver = torch.optim.Adam(self._net.parameters(), lr=lr, weight_decay=decay).cuda()
 
         # Load data
-        root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
-        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root, ver=ver)
+        self.data_opts = data_opts
+        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root)
 
     def train(self, epoch=1, verbose=None):
         """Train the network."""
@@ -134,15 +133,17 @@ class MetricTripletManager(object):
         self._net.train()
         return num_correct/num_total
 
-    def _data_loader(self, root, ver):
-        train_data = 'train'
-        test_data = 'test'
-        val_data = 'test'
-        test_cut = [100, None]
-        val_cut = [0, 100]
+    def _data_loader(self, root):
+        train_data = self.data_opts['train']['set']
+        test_data = self.data_opts['train']['set']
+        val_data = self.data_opts['val']['set']
+        train_cut = self.data_opts['train']['cut']
+        test_cut = self.data_opts['test']['cut']
+        val_cut = self.data_opts['val']['cut']
+        ver = self.data_opts['ver']
         print('Train dataset: {:s}, test dataset: {:s}{:s}, val dataset: {:s}{:s}'
               .format(train_data, test_data, str(test_cut), val_data, str(val_cut)))
-        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, opt='fc7', version=ver)
+        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, cut=train_cut, opt='fc7', version=ver)
         test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, opt='fc7', version=ver)
         val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, opt='fc7', version=ver)
         train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
@@ -171,18 +172,16 @@ def main():
     parser.add_argument('--param', dest='param', type=str, default=None, help='Initialize model parameters.')
 
     parser.add_argument('--lr', dest='lr', type=float, default=0.001, help='Base learning rate for training.')
+    parser.add_argument('--decay', dest='decay', type=float, default=0, help='Weight decay.')
     parser.add_argument('--margin', dest='margin', type=float, default=5.0, help='Margin for triplet loss.')
 
     parser.add_argument('--batch', dest='batch', type=int, default=256, help='Batch size.')
     parser.add_argument('--epoch', dest='epoch', type=int, default=10, help='Epochs for training.')
-    parser.add_argument('--version', dest='version', type=int, default=0, help='Choose dataset version.')
     parser.add_argument('--verbose', dest='verbose', type=int, default=1, help='Printing frequency setting.')
 
     parser.add_argument('--valid', dest='valid', action='store_true', help=' Use validation.')
     parser.add_argument('--no-valid', dest='valid', action='store_false', help='Do not use validation.')
     parser.set_defaults(valid=True)
-
-    # parser.add_argument('--decay', dest='decay', type=float, required=True, help='Weight decay.')
 
     args = parser.parse_args()
 
@@ -190,16 +189,20 @@ def main():
         raise AttributeError('--net parameter must be \'Metric\' or \'FullMetric\'.')
     if args.lr <= 0:
         raise AttributeError('--lr parameter must > 0.')
+    if args.decay < 0:
+        raise AttributeError('--decay parameter must >= 0.')
     if args.margin <= 0:
         raise AttributeError('--margin parameter must > 0.')
     if args.batch <= 0:
         raise AttributeError('--batch parameter must > 0.')
     if args.epoch <= 0:
         raise AttributeError('--epoch parameter must > 0.')
-    if args.version not in [0, 1, 2]:
-        raise AttributeError('--version parameter must be in [0, 1, 2].')
-    # if args.weight_decay <= 0:
-    #     raise AttributeError('--weight_decay parameter must > 0.')
+
+    root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
+    data_opts = {'train': {'set': 'train', 'cut': [None, None]},
+                 'test': {'set': 'test', 'cut': [100, None]},
+                 'val': {'set': 'test', 'cut': [0, 100]},
+                 'ver': 0}
 
     print('====Exp details====')
     print('Net: ' + args.net)
@@ -209,8 +212,8 @@ def main():
     print('#Epoch: {:d}, #Batch: {:d}'.format(args.epoch, args.batch))
     print('Learning rate: {:f}\n'.format(args.lr))
 
-    ml = MetricTripletManager(net=args.net, val=args.valid, margin=args.margin, lr=args.lr,
-                              batch=args.batch, param_path=args.param, ver=args.version)
+    ml = MetricTripletManager(root=root, data_opts=data_opts, net=args.net, val=args.valid, margin=args.margin,
+                              lr=args.lr, decay=args.decay, batch=args.batch, param_path=args.param)
     ml.train(epoch=args.epoch, verbose=args.verbose)
     ml.test()
 
