@@ -112,6 +112,7 @@ class MetricTripletManager(object):
 
         self._net.eval()
         dist_mat = np.zeros((len(data_loader.dataset), 10))
+        batch = self._batch // 4
 
         for i, data in enumerate(data_loader):
             data = data.reshape(-1, 4096)
@@ -119,8 +120,8 @@ class MetricTripletManager(object):
             feat = feat.reshape(feat.size(0)//11, 11, -1)
             dist_p = torch.sqrt(((feat[:, 0, :] - feat[:, 1, :])**2).sum(1))
             dist_n = torch.sqrt(((feat[:, :1, :] - feat[:, 2:, :])**2).sum(2))
-            dist_mat[i*self._batch:min((i+1)*self._batch, dist_mat.shape[0]), 0] = dist_p.cpu().detach().numpy()
-            dist_mat[i*self._batch:min((i+1)*self._batch, dist_mat.shape[0]), 1:] = dist_n.cpu().detach().numpy()
+            dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 0] = dist_p.cpu().detach().numpy()
+            dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 1:] = dist_n.cpu().detach().numpy()
 
         num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
         num_total = dist_mat.shape[0]
@@ -147,8 +148,8 @@ class MetricTripletManager(object):
         test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, opt='fc7', version=ver)
         val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, opt='fc7', version=ver)
         train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
-        test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch)
-        val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch)
+        test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch//4)
+        val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch//4)
         return train_data_loader, test_data_loader, val_data_loader
 
     def _save(self):
