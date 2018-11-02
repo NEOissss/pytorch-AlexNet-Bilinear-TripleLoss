@@ -229,6 +229,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--net', dest='net', type=str, default='Triplet', help='Choose the network.')
     parser.add_argument('--param', dest='param', type=str, default=None, help='Initialize model parameters.')
+    parser.add_argument('--version', dest='version', type=int, default=0, help='Dataset version.')
 
     parser.add_argument('--lr', dest='lr', type=float, default=0.001, help='Base learning rate for training.')
     parser.add_argument('--decay', dest='decay', type=float, default=0, help='Weight decay.')
@@ -250,10 +251,12 @@ def main():
 
     if args.net not in ['Triplet', 'Bilinear']:
         raise AttributeError('--net parameter must be \'Triplet\' or \'Bilinear\'.')
+    if args.version not in [0, 1, 2]:
+        raise AttributeError('--version parameter must be in [0, 1, 2]')
     if args.lr <= 0:
         raise AttributeError('--lr parameter must > 0.')
-    if args.decay <= 0:
-        raise AttributeError('--decay parameter must > 0.')
+    if args.decay < 0:
+        raise AttributeError('--decay parameter must >= 0.')
     if args.margin <= 0:
         raise AttributeError('--margin parameter must > 0.')
     if args.batch <= 0:
@@ -262,13 +265,14 @@ def main():
         raise AttributeError('--epoch parameter must > 0.')
 
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
-    data_opts = {'train': {'set': 'train', 'cut': [None, None]},
-                 'test': {'set': 'test', 'cut': [100, None]},
-                 'val': {'set': 'test', 'cut': [0, 100]},
-                 'ver': 0}
+    data_opts = {'train': {'set': 'train', 'cut': [0, 8000]},
+                 'test': {'set': 'test', 'cut': [None, None]},
+                 'val': {'set': 'train', 'cut': [8000, None]},
+                 'ver': args.version}
 
     print('====Exp details====')
-    print('Net: ' + args.net)
+    print('Net: {:s}'.format(args.net))
+    print('Ver: {:d}'.format(args.version))
     print('Margin: {:.1f}'.format(args.margin))
     print('Validation: ' + str(args.valid))
     print('Pretrained parameters: ' + str(args.param))

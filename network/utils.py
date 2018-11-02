@@ -16,6 +16,7 @@ def analyze_log(filename):
         match_test = re.search(r'test_result_\d+\.npy', content)
         match_test_accu = re.search(r'Test\saccuracy:.+', content)
         match_net = re.search(r'Net:.+', content)
+        match_ver = re.search(r'Ver:.+', content)
         match_margin = re.search(r'Margin:\s\d+\.\d+', content)
         match_freeze = re.search(r'Freeze\smode:.+', content)
         match_epoch = re.search(r'#Epoch:\s\d+', content)
@@ -24,11 +25,12 @@ def analyze_log(filename):
         match_decay = re.search(r'decay:.+', content)
 
     try:
-        res = {'net': match_net.group().split()[-1], 'margin': match_margin.group().split()[-1]}
+        res = {'net': match_net.group().split()[-1], 'ver': match_ver.group().split()[-1] if match_ver else '0'}
         if match_freeze:
             res['freeze'] = match_freeze.group().split()[-1]
         else:
             res['freeze'] = 'None'
+        res['margin'] = match_margin.group().split()[-1]
         res['epoch'] = match_epoch.group().split()[-1]
         res['batch'] = match_batch.group().split()[-1]
         res['lr'] = match_lr.group().split()[-1]
@@ -51,13 +53,13 @@ def pack_results(path):
             if not res:
                 print('Unknown log content: {:s}'.format(fname))
                 continue
-            # Net|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
-            dir_path = '{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
-                        res['net'], res['freeze'], res['margin'], res['epoch'], res['batch'],
+            # Version|Net|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
+            dir_path = 'V{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
+                        res['ver'], res['net'], res['freeze'], res['margin'], res['epoch'], res['batch'],
                         float(res['lr']), float(res['decay']), res['test_accu'])
             if not os.path.exists(dir_path):
                 os.mkdir(dir_path)
-                dir_list.append(dir_path)
+                dir_list.append([dir_path, int(res['ver'])])
             else:
                 print(dir_path + ' already exists!')
                 continue
@@ -176,7 +178,7 @@ def plot_distance(filename):
     plt.savefig('{:s}/{:s}'.format(path, name))
 
 
-def plot_distance_improvement(filename):
+def plot_distance_improvement(filename, ver=0):
     if os.path.isdir(filename):
         metric = None
         path = filename
@@ -192,8 +194,7 @@ def plot_distance_improvement(filename):
         metric = np.load(filename)
         name = filename.split('.')[0]
 
-    cut = 100
-    baseline = np.load('baseline/baseline_test.npy')[cut:]
+    baseline = np.load('baseline/baseline_test_v{:d}.npy'.format(ver))
     baseline_rank = (baseline[:, :1] < baseline[:, 1:]).sum(1)
     metric_rank = (metric[:, :1] < metric[:, 1:]).sum(1)
 
@@ -225,17 +226,17 @@ def plot_distance_improvement(filename):
     plt.ylabel('Rank Change')
     plt.savefig('{:s}/{:s}_bar'.format(path, name))
 
-    x_pos = [i + cut for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
+    x_pos = [i for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
     y_pos = [y[i] for i in range(k) if metric_rank[i] == 9 and y[i] > 0]
 
-    x_neg = [i + cut for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
+    x_neg = [i for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
     y_neg = [y[i] for i in range(k) if baseline_rank[i] == 9 and y[i] < 0]
 
     positive_list, negative_list = [], []
     for i in np.array(y_pos).argsort()[::-1]:
-        positive_list.append([x_pos[i], baseline[x_pos[i] - cut].argmin(), y_pos[i]])
+        positive_list.append([x_pos[i], baseline[x_pos[i]].argmin(), y_pos[i]])
     for i in np.array(y_neg).argsort():
-        negative_list.append([x_neg[i], metric[x_neg[i] - cut].argmin(), y_neg[i]])
+        negative_list.append([x_neg[i], metric[x_neg[i]].argmin(), y_neg[i]])
 
     with open(path + '/positive_list.csv', 'w') as csv_file:
         writer = csv.writer(csv_file)
@@ -248,9 +249,9 @@ def plot_distance_improvement(filename):
 
 # Pack and plots
 def opt_all(path='./'):
-    for dir_path in pack_results(path):
+    for dir_path, ver in pack_results(path):
         plot_distance(dir_path)
-        plot_distance_improvement(dir_path)
+        plot_distance_improvement(dir_path, ver)
 
 
 if __name__ == '__main__':

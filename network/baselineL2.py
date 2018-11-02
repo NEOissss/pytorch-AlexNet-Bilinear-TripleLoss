@@ -20,7 +20,7 @@ def main(test=True, ver=0):
 
     alex = AlexManager(root=root, data_opts=data_opts)
     path = alex.test()
-    new_path = 'baseline/baseline_{:s}.npy'.format(dataset)
+    new_path = 'baseline/baseline_{:s}_v{:d}.npy'.format(dataset, ver)
     shutil.move(path, new_path)
     print('Baseline L2 results for {:s} dataset version {:d} saved at {:s}'.format(dataset, ver, new_path))
 
