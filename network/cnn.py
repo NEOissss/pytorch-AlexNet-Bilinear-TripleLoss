@@ -193,7 +193,7 @@ class AlexManager(object):
 
     def _data_loader(self, root):
         train_data = self.data_opts['train']['set']
-        test_data = self.data_opts['train']['set']
+        test_data = self.data_opts['test']['set']
         val_data = self.data_opts['val']['set']
         train_cut = self.data_opts['train']['cut']
         test_cut = self.data_opts['test']['cut']
