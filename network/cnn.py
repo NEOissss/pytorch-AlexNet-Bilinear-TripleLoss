@@ -55,7 +55,7 @@ class BilinearTripletAlex(torch.nn.Module):
         if self.fc[-1].bias is not None:
             torch.nn.init.constant_(self.fc[-1].bias.data, val=0)
         if self.bfc.bias is not None:
-            torch.nn.init.constant_(self.bnfc.bias.data, val=0)
+            torch.nn.init.constant_(self.bfc.bias.data, val=0)
 
     def forward(self, x):
         x = x.float()
@@ -82,7 +82,7 @@ class TripletMarginLoss(torch.nn.Module):
     def forward(self, a, p, n):
         self.dist_p = torch.sqrt(((a - p) ** 2).sum(1))
         self.dist_n = torch.sqrt(((a - n) ** 2).sum(1))
-        loss = torch.mean(torch.max((self.dist_p - self.dist_n) + self.margin, torch.zeros(1)))
+        loss = torch.mean(torch.max((self.dist_p - self.dist_n) + self.margin, torch.zeros(1).cuda()))
         return loss
 
     def test(self, a, p, n):
