@@ -64,7 +64,7 @@ class BilinearTripletAlex(torch.nn.Module):
         x = self.features(x)
         x = x.view(n, 256 * 6 * 6)
         x = self.fc(x)
-        assert x.size() == (n, self.bi_dim)
+        assert x.size() == (n, self.bi_in)
         return x
 
     def _freeze(self):
