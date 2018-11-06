@@ -54,7 +54,7 @@ class BilinearTripletAlex(torch.nn.Module):
         torch.nn.init.kaiming_normal_(self.bfc.weight.data)
         if self.fc[-1].bias is not None:
             torch.nn.init.constant_(self.fc[-1].bias.data, val=0)
-        if self.bfc.weight.bias is not None:
+        if self.bfc.bias is not None:
             torch.nn.init.constant_(self.bnfc.bias.data, val=0)
 
     def forward(self, x):
@@ -145,7 +145,6 @@ class AlexManager(object):
         self._val = val
         self._net_name = net
         self._stats = []
-        self._criterion = torch.nn.TripletMarginLoss(margin=margin).cuda()
         self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()),
                                         lr=lr, weight_decay=decay)
         # self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1,
