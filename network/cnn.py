@@ -34,29 +34,28 @@ class TripletAlex(torch.nn.Module):
 
 
 class BilinearTripletAlex(torch.nn.Module):
-    def __init__(self, freeze=None, bi_dim=256, fc_dim=4096):
+    def __init__(self, freeze=None, bi_in=256, bi_out=1):
         torch.nn.Module.__init__(self)
-        self.bi_dim = bi_dim
-        self.fc_dim = fc_dim
+        self.bi_in = bi_in
+        self.bi_out = bi_out
         self.features = models.alexnet(pretrained=True).features
-        bfc_list = list(models.alexnet(pretrained=True).classifier.children())[:-1]
-        bfc_list.append(torch.nn.Linear(4096, self.bi_dim))
-        self.bfc = torch.nn.Sequential(*bfc_list)
-        self.fc = torch.nn.Linear(self.bi_dim**2, self.fc_dim)
+        fc_list = list(models.alexnet(pretrained=True).classifier.children())[:-1]
+        fc_list.append(torch.nn.Linear(4096, self.bi_in))
+        self.fc = torch.nn.Sequential(*fc_list)
+
+        self.bfc = torch.nn.Bilinear(self.bi_in, self.bi_in, self.bi_out)
 
         # Freeze layers.
         if freeze:
             self._freeze()
 
-        # Initialize the last bfc layers.
-        torch.nn.init.kaiming_normal_(self.bfc[-1].weight.data)
-        if self.bfc[-1].bias is not None:
-            torch.nn.init.constant_(self.bfc[-1].bias.data, val=0)
-
-        # Initialize the fc layers.
-        torch.nn.init.kaiming_normal_(self.fc.weight.data)
-        if self.fc.bias is not None:
-            torch.nn.init.constant_(self.fc.bias.data, val=0)
+        # Initialize the last fc layers.
+        torch.nn.init.kaiming_normal_(self.fc[-1].weight.data)
+        torch.nn.init.kaiming_normal_(self.bfc.weight.data)
+        if self.fc[-1].bias is not None:
+            torch.nn.init.constant_(self.fc[-1].bias.data, val=0)
+        if self.bfc.weight.bias is not None:
+            torch.nn.init.constant_(self.bnfc.bias.data, val=0)
 
     def forward(self, x):
         x = x.float()
@@ -64,26 +63,63 @@ class BilinearTripletAlex(torch.nn.Module):
         assert x.size() == (n, 3, 227, 227)
         x = self.features(x)
         x = x.view(n, 256 * 6 * 6)
-        x = self.bfc(x)
-        assert x.size() == (n, self.bi_dim)
-        x = x.view(n, -1, self.bi_dim)
-        x = torch.matmul(torch.transpose(x, 1, 2), x)
-        # Signed square root
-        x = torch.sign(x).mul(torch.sqrt(x.abs()))
-        # L2 normalization
-        x = x.div(x.norm(2))
-        assert x.size() == (n, self.bi_dim, self.bi_dim)
-        x = x.view(n, self.bi_dim**2)
         x = self.fc(x)
-        assert x.size() == (n, self.fc_dim)
+        assert x.size() == (n, self.bi_dim)
         return x
 
     def _freeze(self):
         for param in self.features.parameters():
             param.requires_grad = False
-        for layer in self.bfc[:-1]:
-            for param in layer.parameters():
-                param.requires_grad = False
+
+
+class TripletMarginLoss(torch.nn.Module):
+    def __init__(self, margin=1.0):
+        super(TripletMarginLoss, self).__init__()
+        self.margin = margin
+        self.dist_p = None
+        self.dist_n = None
+
+    def forward(self, a, p, n):
+        self.dist_p = torch.sqrt(((a - p) ** 2).sum(1))
+        self.dist_n = torch.sqrt(((a - n) ** 2).sum(1))
+        loss = torch.mean(torch.max((self.dist_p - self.dist_n) + self.margin, torch.zeros(1)))
+        return loss
+
+    def test(self, a, p, n):
+        self.eval()
+        self.dist_p = torch.sqrt(((a - p) ** 2).sum(1))
+        self.dist_n = torch.sqrt(((torch.unsqueeze(a, 1) - n) ** 2).sum())
+        self.train()
+        return self.dist_p, self.dist_n
+
+    def get_batch_accuracy(self):
+        return torch.sum(self.dist_p < self.dist_n).item() / self.dist_p.size(0)
+
+
+class BilinearTripletMarginLoss(torch.nn.Module):
+    def __init__(self, bfc, margin=1.0):
+        super(BilinearTripletMarginLoss, self).__init__()
+        self.bfc = bfc
+        self.margin = margin
+        self.dist_p = None
+        self.dist_n = None
+
+    def forward(self, a, p, n):
+        self.dist_p = self.bfc(a, p).squeeze()
+        self.dist_n = self.bfc(a.expand(), n).squeeze()
+        loss = torch.mean(torch.max((self.dist_p - self.dist_n) + self.margin, torch.zeros(1)))
+        return loss
+
+    def test(self, a, p, n):
+        self.eval()
+        self.dist_p = self.bfc(a, p).squeeze()
+        exp_a = a.expand(n.size(1), a.size(0), a.size(1)).transpose(0, 1)
+        self.dist_n = self.bfc(exp_a, n).squeeze()
+        self.train()
+        return self.dist_p, self.dist_n
+
+    def get_batch_accuracy(self):
+        return torch.sum(self.dist_p < self.dist_n).item() / self.dist_p.size(0)
 
 
 class AlexManager(object):
@@ -91,8 +127,12 @@ class AlexManager(object):
                  margin=1.0, param_path=None, net='Triplet'):
         if net == 'Bilinear':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
+            self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
+            self._bilinear = True
         elif net == 'Triplet':
             self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
+            self._criterion = TripletMarginLoss(margin=margin).cuda()
+            self._bilinear = False
         else:
             raise ValueError('Unavailable net option.')
         # print(self._net)
@@ -124,17 +164,11 @@ class AlexManager(object):
             print("\nEpoch: {:d}".format(t+1))
             iter_num = 0
             for data in iter(self.train_data_loader):
-                # Data.
                 data = data.reshape(-1, 3, 227, 227)
-                # Clear the existing gradients.
                 self._solver.zero_grad()
-                # Forward pass.
                 feat = self._net(data)
-                dist_p = ((feat[0::3, :]-feat[1::3, :])**2).sum(1)
-                dist_n = ((feat[0::3, :]-feat[2::3, :])**2).sum(1)
-                accu = torch.sum(dist_p < dist_n).item()/(feat.size(0)/3)
                 loss = self._criterion(feat[0::3, :], feat[1::3, :], feat[2::3, :])
-                # Backward pass.
+                accu = self._criterion.get_batch_accuracy()
                 loss.backward()
                 self._solver.step()
                 iter_num += 1
@@ -174,8 +208,7 @@ class AlexManager(object):
             data = data.reshape(-1, 3, 227, 227)
             feat = self._net(data)
             feat = feat.reshape(feat.size(0)//11, 11, -1)
-            dist_p = torch.sqrt(((feat[:, 0, :] - feat[:, 1, :])**2).sum(1))
-            dist_n = torch.sqrt(((feat[:, :1, :] - feat[:, 2:, :])**2).sum(2))
+            dist_p, dist_n = self._criterion.test(feat[:, 0, :], feat[:, 1, :], feat[:, 2:, :])
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 0] = dist_p.cpu().detach().numpy()
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 1:] = dist_n.cpu().detach().numpy()
 
