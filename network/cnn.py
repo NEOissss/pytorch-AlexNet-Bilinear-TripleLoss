@@ -106,7 +106,7 @@ class BilinearTripletMarginLoss(torch.nn.Module):
 
     def forward(self, a, p, n):
         self.dist_p = self.bfc(a, p).squeeze()
-        self.dist_n = self.bfc(a.expand(), n).squeeze()
+        self.dist_n = self.bfc(a, n).squeeze()
         loss = torch.mean(torch.max((self.dist_p - self.dist_n) + self.margin, torch.zeros(1)))
         return loss
 
