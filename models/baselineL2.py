@@ -18,7 +18,7 @@ def main(test=True, ver=0):
     if not os.path.exists('baseline'):
         os.mkdir('baseline')
 
-    alex = AlexManager(root=root, data_opts=data_opts, batch=128)
+    alex = AlexManager(root=root, data_opts=data_opts, batch=128, net='TripletConv5')
     path = alex.test()
     new_path = 'baseline/baseline_{:s}_v{:d}.npy'.format(dataset, ver)
     shutil.move(path, new_path)

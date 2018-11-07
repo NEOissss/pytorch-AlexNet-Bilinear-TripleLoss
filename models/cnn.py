@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from SUN360Dataset import Sun360Dataset
 
 
-class TripletAlex(torch.nn.Module):
+class TripletAlexFC7(torch.nn.Module):
     def __init__(self, freeze=None):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features
@@ -26,6 +26,29 @@ class TripletAlex(torch.nn.Module):
         x = x.view(n, 256 * 6 * 6)
         x = self.fc(x)
         assert x.size() == (n, 4096)
+        return x
+
+    def _freeze(self):
+        for param in self.features.parameters():
+            param.requires_grad = False
+
+
+class TripletAlexConv5(torch.nn.Module):
+    def __init__(self, freeze=None):
+        torch.nn.Module.__init__(self)
+        self.features = models.alexnet(pretrained=True).features.children()[:-2]
+
+        # Freeze layers.
+        if freeze:
+            self._freeze()
+
+    def forward(self, x):
+        x = x.float()
+        n = x.size()[0]
+        assert x.size() == (n, 3, 227, 227)
+        x = self.features(x)
+        x = x.view(n, 256 * 6 * 6)
+        assert x.size() == (n, 9216)
         return x
 
     def _freeze(self):
@@ -131,7 +154,11 @@ class AlexManager(object):
             self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
             self._bilinear = True
         elif net == 'Triplet':
-            self._net = torch.nn.DataParallel(TripletAlex(freeze=freeze)).cuda()
+            self._net = torch.nn.DataParallel(TripletAlexFC7(freeze=freeze)).cuda()
+            self._criterion = TripletMarginLoss(margin=margin).cuda()
+            self._bilinear = False
+        elif net == 'TripletConv5':
+            self._net = torch.nn.DataParallel(TripletAlexConv5(freeze=freeze)).cuda()
             self._criterion = TripletMarginLoss(margin=margin).cuda()
             self._bilinear = False
         else:
@@ -282,7 +309,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.net not in ['Triplet', 'Bilinear']:
+    if args.net not in ['Triplet', 'TripletConv5', 'Bilinear']:
         raise AttributeError('--net parameter must be \'Triplet\' or \'Bilinear\'.')
     if args.version not in [0, 1, 2]:
         raise AttributeError('--version parameter must be in [0, 1, 2]')
