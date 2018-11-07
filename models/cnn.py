@@ -34,13 +34,9 @@ class TripletAlexFC7(torch.nn.Module):
 
 
 class TripletAlexConv5(torch.nn.Module):
-    def __init__(self, freeze=None):
+    def __init__(self):
         torch.nn.Module.__init__(self)
         self.features = models.alexnet(pretrained=True).features[:-2]
-
-        # Freeze layers.
-        if freeze:
-            self._freeze()
 
     def forward(self, x):
         x = x.float()
@@ -50,10 +46,6 @@ class TripletAlexConv5(torch.nn.Module):
         x = x.view(n, 256 * 6 * 6)
         assert x.size() == (n, 9216)
         return x
-
-    def _freeze(self):
-        for param in self.features.parameters():
-            param.requires_grad = False
 
 
 class BilinearTripletAlex(torch.nn.Module):
@@ -158,7 +150,7 @@ class AlexManager(object):
             self._criterion = TripletMarginLoss(margin=margin).cuda()
             self._bilinear = False
         elif net == 'TripletConv5':
-            self._net = torch.nn.DataParallel(TripletAlexConv5(freeze=freeze)).cuda()
+            self._net = torch.nn.DataParallel(TripletAlexConv5()).cuda()
             self._criterion = TripletMarginLoss(margin=margin).cuda()
             self._bilinear = False
         else:
