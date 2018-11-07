@@ -43,8 +43,8 @@ class TripletAlexConv5(torch.nn.Module):
         n = x.size()[0]
         assert x.size() == (n, 3, 227, 227)
         x = self.features(x)
-        x = x.view(n, 256 * 6 * 6)
-        assert x.size() == (n, 9216)
+        x = x.view(n, 256 * 13 * 13)
+        assert x.size() == (n, 43264)
         return x
 
 
