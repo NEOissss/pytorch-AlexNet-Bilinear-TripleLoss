@@ -113,8 +113,7 @@ class BilinearTripletMarginLoss(torch.nn.Module):
     def test(self, a, p, n):
         self.eval()
         self.dist_p = self.bfc(a, p).squeeze()
-        exp_a = a.unsqueeze(1).expand(a.size(0), n.size(1), a.size(1)).contiguous()
-        self.dist_n = self.bfc(exp_a, n).squeeze()
+        self.dist_n = self.bfc(a.unsqueeze(1).repeat(1, n.size(1), 1), n).squeeze()
         self.train()
         return self.dist_p, self.dist_n
 
