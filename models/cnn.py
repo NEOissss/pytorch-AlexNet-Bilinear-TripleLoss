@@ -36,7 +36,7 @@ class TripletAlexFC7(torch.nn.Module):
 class TripletAlexConv5(torch.nn.Module):
     def __init__(self, freeze=None):
         torch.nn.Module.__init__(self)
-        self.features = models.alexnet(pretrained=True).features.children()[:-2]
+        self.features = models.alexnet(pretrained=True).features[:-2]
 
         # Freeze layers.
         if freeze:
