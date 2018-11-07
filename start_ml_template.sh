@@ -17,4 +17,4 @@ verbose='--verbose 1'
 valid='--valid'
 #valid='--no-valid'
 
-python3 network/ml.py ${net} ${param} ${version} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${valid}
+python3 models/ml.py ${net} ${param} ${version} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${valid}
