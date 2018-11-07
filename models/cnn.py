@@ -82,13 +82,13 @@ class TripletMarginLoss(torch.nn.Module):
     def forward(self, a, p, n):
         self.dist_p = torch.sqrt(((a - p) ** 2).sum(1))
         self.dist_n = torch.sqrt(((a - n) ** 2).sum(1))
-        loss = torch.mean(torch.max((self.dist_p - self.dist_n) + self.margin, torch.zeros(1).cuda()))
+        loss = torch.mean(((self.dist_p - self.dist_n) + self.margin).clamp(min=0))
         return loss
 
     def test(self, a, p, n):
         self.eval()
         self.dist_p = torch.sqrt(((a - p) ** 2).sum(1))
-        self.dist_n = torch.sqrt(((torch.unsqueeze(a, 1) - n) ** 2).sum())
+        self.dist_n = torch.sqrt(((torch.unsqueeze(a, 1) - n) ** 2).sum(2))
         self.train()
         return self.dist_p, self.dist_n
 
@@ -107,7 +107,7 @@ class BilinearTripletMarginLoss(torch.nn.Module):
     def forward(self, a, p, n):
         self.dist_p = self.bfc(a, p).squeeze()
         self.dist_n = self.bfc(a, n).squeeze()
-        loss = torch.mean(torch.max((self.dist_p - self.dist_n) + self.margin, torch.zeros(1).cuda()))
+        loss = torch.mean(((self.dist_p - self.dist_n) + self.margin).clamp(min=0))
         return loss
 
     def test(self, a, p, n):
