@@ -107,8 +107,8 @@ def plot_stats(log_lists):
     # Batch accuracy
     plt.clf()
     for i, stat in enumerate(stats):
-        x = np.arange(0, stat.shape[0])
-        y = stat[:, 2]
+        x = np.arange(3, stat.shape[0])
+        y = stat[3:, 2]
         plt.plot(x, y, label=labels[i])
     plt.xlabel('Number of Update')
     plt.ylabel('Batch Accuracy')
@@ -118,8 +118,8 @@ def plot_stats(log_lists):
     # Val accuracy
     plt.clf()
     for i, stat in enumerate(stats):
-        x = np.arange(0, stat.shape[0])
-        y = stat[:, 3]
+        x = np.arange(3, stat.shape[0])
+        y = stat[3:, 3]
         plt.plot(x, y, label=labels[i])
     plt.xlabel('Number of Update')
     plt.ylabel('Val Accuracy')
@@ -129,8 +129,8 @@ def plot_stats(log_lists):
     # Triplet loss
     plt.clf()
     for i, stat in enumerate(stats):
-        x = np.arange(0, stat.shape[0])
-        y = stat[:, 4]
+        x = np.arange(3, stat.shape[0])
+        y = stat[3:, 4]
         plt.plot(x, y, label=labels[i])
     plt.xlabel('Number of Update')
     plt.ylabel('Triplet Loss')
