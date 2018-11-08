@@ -36,7 +36,7 @@ class TripletAlexFC7(torch.nn.Module):
 class TripletAlexConv5(torch.nn.Module):
     def __init__(self):
         torch.nn.Module.__init__(self)
-        self.features = models.alexnet(pretrained=True).features[:-2]
+        self.features = models.alexnet(pretrained=True).features
 
     def forward(self, x):
         x = x.float()
