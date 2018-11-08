@@ -21,7 +21,7 @@ def main(test=True, ver=0, net='Triplet', weight='official'):
     print('Baseline L2 results:')
     alex = AlexManager(root=root, data_opts=data_opts, batch=128, net=net, weight=weight)
     path, accu = alex.test()
-    new_path = 'baseline/baseline_v{:d}_{:s}_{:s}_{:s}_{:.1f}.npy'.format(ver, dataset, net, weight, accu)
+    new_path = 'baseline/baseline_v{:d}_{:s}_{:s}_{:s}_{:.1f}.npy'.format(ver, dataset, net, weight, accu*100)
     shutil.move(path, new_path)
 
 
