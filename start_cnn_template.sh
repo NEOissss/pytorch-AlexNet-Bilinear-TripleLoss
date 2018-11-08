@@ -25,4 +25,4 @@ freeze='--no-freeze'
 valid='--valid'
 #valid='--no-valid'
 
-python3 models/cnn.py ${net} ${param} ${version} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${freeze} ${valid}
+python3 models/cnn.py ${net} ${weight} ${param} ${version} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${freeze} ${valid}
