@@ -1,6 +1,7 @@
 #!/bin/sh
 
 net='--net Triplet'
+#net='--net BilinearConv5'
 #net='--net Bilinear'
 
 param=''
