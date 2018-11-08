@@ -15,12 +15,11 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class Sun360Dataset(Dataset):
-    def __init__(self, root, train=True, dataset='train', flip=False, version=0, cut=None, opt='pt'):
+    def __init__(self, root, train=True, dataset='train', version=0, cut=None, opt='pt'):
         super(Sun360Dataset, self).__init__()
         self.root = root
         self.train = train
         self.dataset = dataset  # 'train', 'test'
-        self.flip = flip
         self.ver = version
         self.opt = opt
 

@@ -141,7 +141,7 @@ class BilinearTripletMarginLoss(torch.nn.Module):
 
 class AlexManager(object):
     def __init__(self, root, data_opts, freeze='part', val=True, batch=1, lr=1e-3, decay=0,
-                 margin=1.0, param_path=None, net='Triplet'):
+                 margin=1.0, param_path=None, net='Triplet', flip=True, matterport=False):
         if net == 'Bilinear':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
             self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
@@ -158,18 +158,24 @@ class AlexManager(object):
             raise ValueError('Unavailable net option.')
         # print(self._net)
 
+        # define the total #choice
+        if matterport:
+            self._n = 4
+        else:
+            self._n = 10
+
         # Load pre-trained parameters
         if param_path:
             self._load(param_path)
 
+        self._flip = flip
         self._batch = batch
         self._val = val
         self._net_name = net
         self._stats = []
         self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()),
                                         lr=lr, weight_decay=decay)
-        # self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.1,
-        #                                                              patience=3, verbose=True, threshold=1e-4)
+        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', patience=3)
 
         # Load data
         self.data_opts = data_opts
@@ -185,6 +191,8 @@ class AlexManager(object):
             iter_num = 0
             for data in iter(self.train_data_loader):
                 data = data.reshape(-1, 3, 227, 227)
+                if self._flip:
+                    data = self._data_flip(data)
                 self._solver.zero_grad()
                 feat = self._net(data)
                 loss = self._criterion(feat[0::3, :], feat[1::3, :], feat[2::3, :])
@@ -198,6 +206,7 @@ class AlexManager(object):
                     if val_accu > best_iter[3]:
                         best_iter = [t+1, iter_num, accu, val_accu, loss.item()]
                     self._stats.append([t+1, iter_num, accu, val_accu, loss.item()])
+                    self._scheduler.step(val_accu)
                 else:
                     if accu > best_iter[2]:
                         best_iter = [t+1, iter_num, accu, loss.item()]
@@ -221,18 +230,18 @@ class AlexManager(object):
             print('Testing.')
 
         self._net.eval()
-        dist_mat = np.zeros((len(data_loader.dataset), 10))
+        dist_mat = np.zeros((len(data_loader.dataset), self._n))
         batch = self._batch // 4
 
         for i, data in enumerate(data_loader):
             data = data.reshape(-1, 3, 227, 227)
             feat = self._net(data)
-            feat = feat.reshape(feat.size(0)//11, 11, -1)
+            feat = feat.reshape(feat.size(0)//(self._n+1), self._n+1, -1)
             dist_p, dist_n = self._criterion.test(feat[:, 0, :], feat[:, 1, :], feat[:, 2:, :])
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 0] = dist_p.cpu().detach().numpy()
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 1:] = dist_n.cpu().detach().numpy()
 
-        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
+        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == self._n-1)
         num_total = dist_mat.shape[0]
         self._net.train()
 
@@ -244,6 +253,11 @@ class AlexManager(object):
             return 'test_result_' + timestamp + '.npy'
         else:
             return num_correct/num_total
+
+    def _data_flip(self, data):
+        idx = torch.randperm(data.size(0))[:data.size(0)//2]
+        data[idx] = data[idx].flip(3)
+        return data
 
     def _data_loader(self, root):
         train_data = self.data_opts['train']['set']
