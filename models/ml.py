@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from SUN360Dataset import Sun360Dataset
+from cnn import get_alexnet
 
 
 class MetricTrplet(torch.nn.Module):
@@ -36,7 +37,7 @@ class FullMetricTriplet(torch.nn.Module):
 
 class MetricTripletManager(object):
     def __init__(self, root, data_opts, val=True, batch=1, lr=1e-3, decay=0, margin=1.0,
-                 param_path=None, net='Metric', matterport=False):
+                 param_path=None, net='Metric', weight='official', matterport=False):
         if net == 'FullMetric':
             self._net = torch.nn.DataParallel(FullMetricTriplet()).cuda()
         elif net == 'Metric':

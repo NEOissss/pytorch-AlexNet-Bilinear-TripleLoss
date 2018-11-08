@@ -4,7 +4,7 @@ import shutil
 from cnn import AlexManager
 
 
-def main(test=True, ver=0, weight='official', net=net):
+def main(test=True, ver=0, net='Triplet', weight='official'):
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
     if test:
         dataset = 'test'
