@@ -342,7 +342,7 @@ def main():
     parser.add_argument('--no-freeze', dest='freeze', action='store_false', help='Choose non-freeze mode.')
     parser.set_defaults(freeze=True)
 
-    parser.add_argument('--valid', dest='valid', action='store_true', help=' Use validation.')
+    parser.add_argument('--valid', dest='valid', action='store_true', help='Use validation.')
     parser.add_argument('--no-valid', dest='valid', action='store_false', help='Do not use validation.')
     parser.set_defaults(valid=True)
 
@@ -378,7 +378,8 @@ def main():
     print('Freeze mode: ' + str(args.freeze))
     print('#Epoch: {:d}, #Batch: {:d}'.format(args.epoch, args.batch))
     print('Learning rate: {:.0e}'.format(args.lr))
-    print('Weight decay: {:.0e}\n'.format(args.decay))
+    print('Weight decay: {:.0e}'.format(args.decay))
+    print('Learning rate scheduler used!\n')
 
     cnn = AlexManager(root=root, data_opts=data_opts, net=args.net, freeze=args.freeze, val=args.valid,
                       margin=args.margin, lr=args.lr, decay=args.decay, batch=args.batch, param_path=args.param)
