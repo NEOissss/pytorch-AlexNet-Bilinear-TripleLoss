@@ -110,7 +110,7 @@ class BilinearTripletAlexConv5(torch.nn.Module):
         n = x.size()[0]
         assert x.size() == (n, 3, 227, 227)
         x = self.features(x)
-        x = x.view(n, 256 * 6 * 6)
+        x = x.view(n, 256, -1)
         x = x.mean(2)
         assert x.size() == (n, self.bi_in)
         return x
