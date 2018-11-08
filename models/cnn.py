@@ -224,7 +224,8 @@ class AlexManager(object):
             for data in iter(self.train_data_loader):
                 data = data.reshape(-1, 3, 227, 227)
                 if self._flip:
-                    data = self._data_flip(data)
+                    idx = torch.randperm(data.size(0))[:data.size(0)//2]
+                    data[idx] = data[idx].flip(3)
                 self._solver.zero_grad()
                 feat = self._net(data)
                 loss = self._criterion(feat[0::3, :], feat[1::3, :], feat[2::3, :])
@@ -238,7 +239,6 @@ class AlexManager(object):
                     if val_accu > best_iter[3]:
                         best_iter = [t+1, iter_num, accu, val_accu, loss.item()]
                     self._stats.append([t+1, iter_num, accu, val_accu, loss.item()])
-                    self._scheduler.step(val_accu)
                 else:
                     if accu > best_iter[2]:
                         best_iter = [t+1, iter_num, accu, loss.item()]
@@ -247,6 +247,9 @@ class AlexManager(object):
                 if verbose and iter_num % verbose == 0:
                     print('Batch: {:d}, Triplet loss: {:.4f}, Batch accuracy: {:.2f}, Valid accuracy: {:.2f}'.format(
                         iter_num, loss.item(), self._stats[-1][2], self._stats[-1][3]))
+
+            if self._val:
+                self._scheduler.step(val_accu)
 
         self._stats = np.array(self._stats)
         print('\nBest iteration stats: ' + str(best_iter) + '\n')
@@ -285,11 +288,6 @@ class AlexManager(object):
             return 'test_result_' + timestamp + '.npy'
         else:
             return num_correct/num_total
-
-    def _data_flip(self, data):
-        idx = torch.randperm(data.size(0))[:data.size(0)//2]
-        data[idx] = data[idx].flip(3)
-        return data
 
     def _data_loader(self, root):
         train_data = self.data_opts['train']['set']
