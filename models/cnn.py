@@ -207,7 +207,7 @@ class AlexManager(object):
         self._stats = []
         self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()),
                                         lr=lr, weight_decay=decay)
-        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', patience=3)
+        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max')
 
         # Load data
         self.data_opts = data_opts
