@@ -88,6 +88,38 @@ class BilinearTripletAlex(torch.nn.Module):
             param.requires_grad = False
 
 
+class BilinearTripletAlexConv5(torch.nn.Module):
+    def __init__(self, freeze=None, bi_in=256, bi_out=1):
+        torch.nn.Module.__init__(self)
+        self.bi_in = bi_in
+        self.bi_out = bi_out
+        self.features = models.alexnet(pretrained=True).features
+        self.bfc = torch.nn.Bilinear(self.bi_in, self.bi_in, self.bi_out)
+
+        # Freeze layers.
+        if freeze:
+            self._freeze()
+
+        # Initialize the last fc layers.
+        torch.nn.init.kaiming_normal_(self.bfc.weight.data)
+        if self.bfc.bias is not None:
+            torch.nn.init.constant_(self.bfc.bias.data, val=0)
+
+    def forward(self, x):
+        x = x.float()
+        n = x.size()[0]
+        assert x.size() == (n, 3, 227, 227)
+        x = self.features(x)
+        x = x.view(n, 256 * 6 * 6)
+        x = x.mean(2)
+        assert x.size() == (n, self.bi_in)
+        return x
+
+    def _freeze(self):
+        for param in self.features.parameters():
+            param.requires_grad = False
+
+
 class TripletMarginLoss(torch.nn.Module):
     def __init__(self, margin=1.0):
         super(TripletMarginLoss, self).__init__()
@@ -145,15 +177,15 @@ class AlexManager(object):
         if net == 'Bilinear':
             self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
             self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
-            self._bilinear = True
+        if net == 'BilinearConv5':
+            self._net = torch.nn.DataParallel(BilinearTripletAlexConv5(freeze=freeze)).cuda()
+            self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
         elif net == 'Triplet':
             self._net = torch.nn.DataParallel(TripletAlexFC7(freeze=freeze)).cuda()
             self._criterion = TripletMarginLoss(margin=margin).cuda()
-            self._bilinear = False
         elif net == 'TripletConv5':
             self._net = torch.nn.DataParallel(TripletAlexConv5()).cuda()
             self._criterion = TripletMarginLoss(margin=margin).cuda()
-            self._bilinear = False
         else:
             raise ValueError('Unavailable net option.')
         # print(self._net)
