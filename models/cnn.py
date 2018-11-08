@@ -36,15 +36,16 @@ class TripletAlexFC7(torch.nn.Module):
 class TripletAlexConv5(torch.nn.Module):
     def __init__(self):
         torch.nn.Module.__init__(self)
-        self.features = models.alexnet(pretrained=True).features
+        self.features = models.alexnet(pretrained=True).features[:-2]
 
     def forward(self, x):
         x = x.float()
         n = x.size()[0]
         assert x.size() == (n, 3, 227, 227)
         x = self.features(x)
-        x = x.view(n, 256 * 6 * 6)
-        assert x.size() == (n, 9216)
+        x = x.view(n, 256, -1)
+        x = x.mean(2)
+        assert x.size() == (n, 256)
         return x
 
 
