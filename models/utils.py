@@ -17,6 +17,7 @@ def analyze_log(filename):
         match_test_accu = re.search(r'Test\saccuracy:.+', content)
         match_net = re.search(r'Net:.+', content)
         match_ver = re.search(r'Ver:.+', content)
+        match_weight = re.search(r'Alexnet:.+', content)
         match_margin = re.search(r'Margin:\s\d+\.\d+', content)
         match_freeze = re.search(r'Freeze\smode:.+', content)
         match_epoch = re.search(r'#Epoch:\s\d+', content)
@@ -25,20 +26,20 @@ def analyze_log(filename):
         match_decay = re.search(r'decay:.+', content)
 
     try:
-        res = {'net': match_net.group().split()[-1], 'ver': match_ver.group().split()[-1] if match_ver else '0'}
-        if match_freeze:
-            res['freeze'] = match_freeze.group().split()[-1]
-        else:
-            res['freeze'] = 'None'
-        res['margin'] = match_margin.group().split()[-1]
-        res['epoch'] = match_epoch.group().split()[-1]
-        res['batch'] = match_batch.group().split()[-1]
-        res['lr'] = match_lr.group().split()[-1]
-        res['decay'] = match_decay.group().split()[-1] if match_decay else 0
-        res['test_accu'] = match_test_accu.group().split()[-1][:5]
-        res['param'] = match_param.group().split()[-1] if match_param else None
-        res['train'] = match_train.group() if match_train else None
-        res['test'] = match_test.group() if match_test else None
+        res = {'net': match_net.group().split()[-1],
+               'weight': match_weight.group().split()[-1] if match_weight else 'official',
+               'ver': match_ver.group().split()[-1] if match_ver else '0',
+               'freeze': match_freeze.group().split()[-1] if match_freeze else 'None',
+               'margin': match_margin.group().split()[-1],
+               'epoch': match_epoch.group().split()[-1],
+               'batch': match_batch.group().split()[-1],
+               'lr': match_lr.group().split()[-1],
+               'decay': match_decay.group().split()[-1] if match_decay else 0,
+               'test_accu': match_test_accu.group().split()[-1][:5],
+               'param': match_param.group().split()[-1] if match_param else None,
+               'train': match_train.group() if match_train else None,
+               'test': match_test.group() if match_test else None
+               }
         return res
     except AttributeError:
         return None
@@ -53,9 +54,9 @@ def pack_results(path):
             if not res:
                 print('Unknown log content: {:s}'.format(fname))
                 continue
-            # Version|Net|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
-            dir_path = 'V{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
-                        res['ver'], res['net'], res['freeze'], res['margin'], res['epoch'], res['batch'],
+            # Version|Net|Weight|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
+            dir_path = 'V{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
+                        res['ver'], res['net'], res['weight'], res['freeze'], res['margin'], res['epoch'], res['batch'],
                         float(res['lr']), float(res['decay']), res['test_accu'])
             if not os.path.exists(dir_path):
                 os.mkdir(dir_path)
@@ -92,9 +93,9 @@ def plot_stats(log_lists):
             res = analyze_log(i)
             y = res['train']
 
-        x = '{:s}-{:s}-{:s}-{:s}-{:.0e}-{:.0e}'.format(res['net'], res['freeze'],
-                                                       res['margin'], res['batch'],
-                                                       float(res['lr']), float(res['decay']))
+        x = '{:s}-{:s}-{:s}-{:s}-{:s}-{:.0e}-{:.0e}'.format(res['net'], res['weight'], res['freeze'],
+                                                            res['margin'], res['batch'],
+                                                            float(res['lr']), float(res['decay']))
         labels.append(x)
         stats.append(np.load(y))
 

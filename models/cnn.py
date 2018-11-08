@@ -1,3 +1,4 @@
+import os
 import argparse
 from datetime import datetime
 import numpy as np
@@ -8,10 +9,11 @@ from SUN360Dataset import Sun360Dataset
 
 
 class TripletAlexFC7(torch.nn.Module):
-    def __init__(self, freeze=None):
+    def __init__(self, freeze=None, pretrained='official'):
         torch.nn.Module.__init__(self)
-        self.features = models.alexnet(pretrained=True).features
-        fc_list = list(models.alexnet(pretrained=True).classifier.children())[:-2]
+        alexnet = get_alexnet(pretrained=pretrained)
+        self.features = alexnet.features
+        fc_list = list(alexnet.classifier.children())[:-2]
         self.fc = torch.nn.Sequential(*fc_list)
 
         # Freeze layers.
@@ -34,9 +36,10 @@ class TripletAlexFC7(torch.nn.Module):
 
 
 class TripletAlexConv5(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, pretrained='official'):
         torch.nn.Module.__init__(self)
-        self.features = models.alexnet(pretrained=True).features
+        alexnet = get_alexnet(pretrained=pretrained)
+        self.features = alexnet.features
 
     def forward(self, x):
         x = x.float()
@@ -50,12 +53,13 @@ class TripletAlexConv5(torch.nn.Module):
 
 
 class BilinearTripletAlex(torch.nn.Module):
-    def __init__(self, freeze=None, bi_in=256, bi_out=1):
+    def __init__(self, freeze=None, bi_in=256, bi_out=1, pretrained='official'):
         torch.nn.Module.__init__(self)
         self.bi_in = bi_in
         self.bi_out = bi_out
-        self.features = models.alexnet(pretrained=True).features
-        fc_list = list(models.alexnet(pretrained=True).classifier.children())[:-1]
+        alexnet = get_alexnet(pretrained=pretrained)
+        self.features = alexnet.features
+        fc_list = list(alexnet.classifier.children())[:-1]
         fc_list.append(torch.nn.Linear(4096, self.bi_in))
         self.fc = torch.nn.Sequential(*fc_list)
 
@@ -89,11 +93,12 @@ class BilinearTripletAlex(torch.nn.Module):
 
 
 class BilinearTripletAlexConv5(torch.nn.Module):
-    def __init__(self, freeze=None, bi_in=256, bi_out=1):
+    def __init__(self, freeze=None, bi_in=256, bi_out=1, pretrained='official'):
         torch.nn.Module.__init__(self)
         self.bi_in = bi_in
         self.bi_out = bi_out
-        self.features = models.alexnet(pretrained=True).features
+        alexnet = get_alexnet(pretrained=pretrained)
+        self.features = alexnet.features
         self.bfc = torch.nn.Bilinear(self.bi_in, self.bi_in, self.bi_out)
 
         # Freeze layers.
@@ -172,19 +177,19 @@ class BilinearTripletMarginLoss(torch.nn.Module):
 
 
 class AlexManager(object):
-    def __init__(self, root, data_opts, freeze='part', val=True, batch=1, lr=1e-3, decay=0,
-                 margin=1.0, param_path=None, net='Triplet', flip=True, matterport=False):
+    def __init__(self, root, data_opts, freeze='part', val=True, batch=1, lr=1e-3, decay=0, margin=1.0,
+                 param_path=None, net='Triplet', weight='official', flip=True, matterport=False):
         if net == 'Bilinear':
-            self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze)).cuda()
+            self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze, pretrained=weight)).cuda()
             self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
         elif net == 'BilinearConv5':
-            self._net = torch.nn.DataParallel(BilinearTripletAlexConv5(freeze=freeze)).cuda()
+            self._net = torch.nn.DataParallel(BilinearTripletAlexConv5(freeze=freeze, pretrained=weight)).cuda()
             self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
         elif net == 'Triplet':
-            self._net = torch.nn.DataParallel(TripletAlexFC7(freeze=freeze)).cuda()
+            self._net = torch.nn.DataParallel(TripletAlexFC7(freeze=freeze, pretrained=weight)).cuda()
             self._criterion = TripletMarginLoss(margin=margin).cuda()
         elif net == 'TripletConv5':
-            self._net = torch.nn.DataParallel(TripletAlexConv5()).cuda()
+            self._net = torch.nn.DataParallel(TripletAlexConv5(pretrained=weight)).cuda()
             self._criterion = TripletMarginLoss(margin=margin).cuda()
         else:
             raise ValueError('Unavailable net option.')
@@ -285,7 +290,7 @@ class AlexManager(object):
             np.save('test_result_' + timestamp, dist_mat)
             print('Test accuracy saved: test_result_' + timestamp + '.npy')
             print('Test accuracy: {:f}'.format(num_correct/num_total))
-            return 'test_result_' + timestamp + '.npy'
+            return 'test_result_' + timestamp + '.npy', num_correct/num_total
         else:
             return num_correct/num_total
 
@@ -322,9 +327,27 @@ class AlexManager(object):
         print('Model parameters loaded: ' + path)
 
 
+def get_alexnet(pretrained='official'):
+    if pretrained == 'official':
+        return models.alexnet(pretrained=True)
+    elif pretrained == 'places365':
+        model_file = 'alexnet_places365.pth.tar'
+        if not os.access(model_file, os.W_OK):
+            weight_url = 'http://places2.csail.mit.edu/models_places365/' + model_file
+            os.system('wget ' + weight_url)
+        model = models.alexnet(num_classes=365)
+        checkpoint = torch.load(model_file, map_location=lambda storage, loc: storage)
+        state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
+        model.load_state_dict(state_dict)
+        return model
+    else:
+        raise ValueError('Unknown pretrained model!')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--net', dest='net', type=str, default='Triplet', help='Choose the network.')
+    parser.add_argument('--weight', dest='weight', type=str, default='official', help='Choose pretrained model.')
     parser.add_argument('--param', dest='param', type=str, default=None, help='Initialize model parameters.')
     parser.add_argument('--version', dest='version', type=int, default=0, help='Dataset version.')
 
@@ -348,6 +371,8 @@ def main():
 
     if args.net not in ['Triplet', 'TripletConv5', 'Bilinear', 'BilinearConv5']:
         raise AttributeError('--net parameter must be \'Triplet\' or \'Bilinear\'.')
+    if args.weight not in ['official', 'places365']:
+        raise AttributeError('--weight parameter must be \'official\' or \'places365\'')
     if args.version not in [0, 1, 2]:
         raise AttributeError('--version parameter must be in [0, 1, 2]')
     if args.lr <= 0:
@@ -369,18 +394,20 @@ def main():
 
     print('====Exp details====')
     print('Net: {:s}'.format(args.net))
+    print('Alexnet: ' + str(args.weight))
     print('Ver: {:d}'.format(args.version))
-    print('Margin: {:.1f}'.format(args.margin))
     print('Validation: ' + str(args.valid))
     print('Pretrained parameters: ' + str(args.param))
     print('Freeze mode: ' + str(args.freeze))
+    print('Margin: {:.1f}'.format(args.margin))
     print('#Epoch: {:d}, #Batch: {:d}'.format(args.epoch, args.batch))
     print('Learning rate: {:.0e}'.format(args.lr))
     print('Weight decay: {:.0e}'.format(args.decay))
     print('Learning rate scheduler used!\n')
 
-    cnn = AlexManager(root=root, data_opts=data_opts, net=args.net, freeze=args.freeze, val=args.valid,
-                      margin=args.margin, lr=args.lr, decay=args.decay, batch=args.batch, param_path=args.param)
+    cnn = AlexManager(root=root, data_opts=data_opts,
+                      net=args.net, weight=args.weight, freeze=args.freeze, param_path=args.param,
+                      margin=args.margin, lr=args.lr, decay=args.decay, batch=args.batch, val=args.valid)
     cnn.train(epoch=args.epoch, verbose=args.verbose)
     cnn.test()
 

@@ -5,6 +5,9 @@ net='--net Triplet'
 #net='--net Bilinear'
 #net='--net BilinearConv5'
 
+weight='--weight official'
+#weight='--weight places365'
+
 param=''
 # param='--param Triplet-param-467382378'
 

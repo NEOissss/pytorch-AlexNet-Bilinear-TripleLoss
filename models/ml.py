@@ -35,7 +35,8 @@ class FullMetricTriplet(torch.nn.Module):
 
 
 class MetricTripletManager(object):
-    def __init__(self, root, data_opts, val=True, batch=1, lr=1e-3, decay=0, margin=1.0, param_path=None, net='Metric'):
+    def __init__(self, root, data_opts, val=True, batch=1, lr=1e-3, decay=0, margin=1.0,
+                 param_path=None, net='Metric', matterport=False):
         if net == 'FullMetric':
             self._net = torch.nn.DataParallel(FullMetricTriplet()).cuda()
         elif net == 'Metric':
@@ -43,6 +44,12 @@ class MetricTripletManager(object):
         else:
             raise ValueError('Unavailable net option.')
         # print(self._net)
+
+        # define the total #choice
+        if matterport:
+            self._n = 4
+        else:
+            self._n = 10
 
         # Load pre-trained parameters
         if param_path:
@@ -54,6 +61,7 @@ class MetricTripletManager(object):
         self._stats = []
         self._criterion = torch.nn.TripletMarginLoss(margin=margin).cuda()
         self._solver = torch.optim.Adam(self._net.parameters(), lr=lr, weight_decay=decay).cuda()
+        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.2, verbose=True)
 
         # Load data
         self.data_opts = data_opts
@@ -97,6 +105,9 @@ class MetricTripletManager(object):
                     print('Batch: {:d}, Triplet loss: {:.4f}, Batch accuracy: {:.2f}, Valid accuracy: {:.2f}'.format(
                         iter_num, loss.item(), self._stats[-1][2], self._stats[-1][3]))
 
+            if self._val:
+                self._scheduler.step(val_accu)
+
         self._stats = np.array(self._stats)
         print('\nBest iteration stats: ' + str(best_iter) + '\n')
         return self._save()
@@ -111,28 +122,30 @@ class MetricTripletManager(object):
             print('Testing.')
 
         self._net.eval()
-        dist_mat = np.zeros((len(data_loader.dataset), 10))
+        dist_mat = np.zeros((len(data_loader.dataset), self._n))
         batch = self._batch // 4
 
         for i, data in enumerate(data_loader):
             data = data.reshape(-1, 4096)
             feat = self._net(data)
-            feat = feat.reshape(feat.size(0)//11, 11, -1)
+            feat = feat.reshape(feat.size(0)//(self._n+1), self._n+1, -1)
             dist_p = torch.sqrt(((feat[:, 0, :] - feat[:, 1, :])**2).sum(1))
             dist_n = torch.sqrt(((feat[:, :1, :] - feat[:, 2:, :])**2).sum(2))
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 0] = dist_p.cpu().detach().numpy()
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 1:] = dist_n.cpu().detach().numpy()
 
-        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == 9)
+        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == self._n-1)
         num_total = dist_mat.shape[0]
+        self._net.train()
 
         if not val:
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             np.save('test_result_' + timestamp, dist_mat)
             print('Test accuracy saved: test_result_' + timestamp + '.npy')
             print('Test accuracy: {:f}'.format(num_correct/num_total))
-        self._net.train()
-        return num_correct/num_total
+            return 'test_result_' + timestamp + '.npy'
+        else:
+            return num_correct / num_total
 
     def _data_loader(self, root):
         train_data = self.data_opts['train']['set']
