@@ -170,10 +170,10 @@ class BilinearTripletMarginLoss(torch.nn.Module):
         exp_n = n.contiguous()
         self.concur_n = self.bfc(exp_a, exp_n).max(1)[0]
         self.train()
-        return self.dist_p, self.dist_n
+        return self.concur_p, self.concur_n
 
     def get_batch_accuracy(self):
-        return torch.sum(self.concur_p > self.concur_n).item() / self.dist_p.size(0)
+        return torch.sum(self.concur_p > self.concur_n).item() / self.concur_p.size(0)
 
 
 class AlexManager(object):
