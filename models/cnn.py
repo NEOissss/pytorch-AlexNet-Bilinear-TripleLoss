@@ -281,7 +281,10 @@ class AlexManager(object):
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 0] = dist_p.cpu().detach().numpy()
             dist_mat[i*batch:min((i+1)*batch, dist_mat.shape[0]), 1:] = dist_n.cpu().detach().numpy()
 
-        num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == self._n-1)
+        if 'Bilinear' in self._net_name:
+            num_correct = np.sum(np.sum(dist_mat[:, 1:] < dist_mat[:, :1], axis=1) == self._n - 1)
+        else:
+            num_correct = np.sum(np.sum(dist_mat[:, 1:] > dist_mat[:, :1], axis=1) == self._n - 1)
         num_total = dist_mat.shape[0]
         self._net.train()
 
