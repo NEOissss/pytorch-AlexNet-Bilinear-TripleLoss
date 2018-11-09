@@ -168,7 +168,7 @@ class BilinearTripletMarginLoss(torch.nn.Module):
         self.concur_p = self.bfc(a, p).max(1)[0]
         exp_a = a.unsqueeze(1).expand(a.size(0), n.size(1), a.size(1)).contiguous()
         exp_n = n.contiguous()
-        self.concur_n = self.bfc(exp_a, exp_n).max(1)[0]
+        self.concur_n = self.bfc(exp_a, exp_n).max(2)[0]
         self.train()
         return self.concur_p, self.concur_n
 
