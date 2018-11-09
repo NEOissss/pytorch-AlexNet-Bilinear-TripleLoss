@@ -201,7 +201,7 @@ def plot_distance_improvement(filename, ver=0, net='Triplet', weight='official')
     for npy_name in os.listdir('baseline'):
         if r.match(npy_name):
             break
-    baseline = np.load(npy_name)
+    baseline = np.load('baseline/' + npy_name)
     baseline_rank = (baseline[:, :1] < baseline[:, 1:]).sum(1)
     metric_rank = (metric[:, :1] < metric[:, 1:]).sum(1)
 
