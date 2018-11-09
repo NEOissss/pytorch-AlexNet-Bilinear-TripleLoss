@@ -24,9 +24,11 @@ def analyze_log(filename):
         match_batch = re.search(r'#Batch:\s\d+', content)
         match_lr = re.search(r'rate:.+', content)
         match_decay = re.search(r'decay:.+', content)
+        match_dim = re.search(r'dimension:.+', content)
 
     try:
         res = {'net': match_net.group().split()[-1],
+               'dim': match_dim.group().split()[-1] if match_dim else '1',
                'weight': match_weight.group().split()[-1] if match_weight else 'official',
                'ver': match_ver.group().split()[-1] if match_ver else '0',
                'freeze': match_freeze.group().split()[-1] if match_freeze else 'None',
@@ -45,7 +47,7 @@ def analyze_log(filename):
         return None
 
 
-def pack_results(path):
+def pack_results(path='./'):
     files = os.listdir(path)
     dir_list = []
     for fname in files:
@@ -54,13 +56,13 @@ def pack_results(path):
             if not res:
                 print('Unknown log content: {:s}'.format(fname))
                 continue
-            # Version|Net|Weight|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
-            dir_path = 'V{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
-                        res['ver'], res['net'], res['weight'], res['freeze'], res['margin'], res['epoch'], res['batch'],
-                        float(res['lr']), float(res['decay']), res['test_accu'])
+            # Version|Net|Dim|Weight|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
+            dir_path = 'V{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
+                        res['ver'], res['net'], res['dim'], res['weight'], res['freeze'], res['margin'],
+                        res['epoch'], res['batch'], float(res['lr']), float(res['decay']), res['test_accu'])
             if not os.path.exists(dir_path):
                 os.mkdir(dir_path)
-                dir_list.append([dir_path, int(res['ver'])])
+                dir_list.append([dir_path, int(res['ver']), res['net'], res['weight']])
             else:
                 print(dir_path + ' already exists!')
                 continue
@@ -93,9 +95,9 @@ def plot_stats(log_lists):
             res = analyze_log(i)
             y = res['train']
 
-        x = '{:s}-{:s}-{:s}-{:s}-{:s}-{:.0e}-{:.0e}'.format(res['net'], res['weight'], res['freeze'],
-                                                            res['margin'], res['batch'],
-                                                            float(res['lr']), float(res['decay']))
+        x = '{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:.0e}-{:.0e}'.format(
+            res['net'], res['dim'], res['weight'], res['freeze'], res['margin'],
+            res['batch'], float(res['lr']), float(res['decay']))
         labels.append(x)
         stats.append(np.load(y))
 
@@ -179,7 +181,7 @@ def plot_distance(filename):
     plt.savefig('{:s}/{:s}'.format(path, name))
 
 
-def plot_distance_improvement(filename, ver=0):
+def plot_distance_improvement(filename, ver=0, net='Triplet', weight='official'):
     if os.path.isdir(filename):
         metric = None
         path = filename
@@ -195,7 +197,11 @@ def plot_distance_improvement(filename, ver=0):
         metric = np.load(filename)
         name = filename.split('.')[0]
 
-    baseline = np.load('baseline/baseline_test_v{:d}.npy'.format(ver))
+    r = re.compile(r'baseline_v{:d}_test_{:s}_{:s}.+\.npy'.format(ver, net, weight))
+    for npy_name in os.listdir('baseline'):
+        if r.match(npy_name):
+            break
+    baseline = np.load(npy_name)
     baseline_rank = (baseline[:, :1] < baseline[:, 1:]).sum(1)
     metric_rank = (metric[:, :1] < metric[:, 1:]).sum(1)
 
@@ -250,14 +256,14 @@ def plot_distance_improvement(filename, ver=0):
 
 # Pack and plots
 def opt_all(path='./'):
-    for dir_path, ver in pack_results(path):
+    for dir_path, ver, net, weight in pack_results(path):
         plot_distance(dir_path)
-        plot_distance_improvement(dir_path, ver)
+        plot_distance_improvement(dir_path, ver, net, weight)
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
-        print('Usage: python3 utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')
+        print('Usage: python utils.py pack [path] OR python utils.py plot <dir1, dir2, ...>')
     else:
         if sys.argv[1] == 'pack':
             if len(sys.argv) == 2:
@@ -265,8 +271,8 @@ if __name__ == '__main__':
             elif len(sys.argv) == 3:
                 opt_all(sys.argv[2])
             else:
-                print('Usage: python3 utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')
+                print('Usage: python utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')
         elif sys.argv[1] == 'plot' and len(sys.argv) > 2:
             plot_stats(sys.argv[2:])
         else:
-            print('Usage: python3 utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')
+            print('Usage: python utils.py pack [path] OR python3 utils.py plot <dir1, dir2, ...>')

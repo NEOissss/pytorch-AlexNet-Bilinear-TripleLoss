@@ -5,6 +5,8 @@ net='--net Triplet'
 #net='--net Bilinear'
 #net='--net BilinearConv5'
 
+dim='--dim 1'
+
 weight='--weight official'
 #weight='--weight places365'
 
@@ -25,4 +27,4 @@ freeze='--no-freeze'
 valid='--valid'
 #valid='--no-valid'
 
-python3 models/cnn.py ${net} ${weight} ${param} ${version} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${freeze} ${valid}
+python3 models/cnn.py ${net} ${dim} ${weight} ${param} ${version} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${freeze} ${valid}

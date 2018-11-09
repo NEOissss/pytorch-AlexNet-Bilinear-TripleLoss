@@ -154,36 +154,36 @@ class BilinearTripletMarginLoss(torch.nn.Module):
         super(BilinearTripletMarginLoss, self).__init__()
         self.bfc = bfc
         self.margin = margin
-        self.dist_p = None
-        self.dist_n = None
+        self.concur_p = None
+        self.concur_n = None
 
     def forward(self, a, p, n):
-        self.dist_p = self.bfc(a, p).squeeze()
-        self.dist_n = self.bfc(a, n).squeeze()
-        loss = torch.mean(((self.dist_p - self.dist_n) + self.margin).clamp(min=0))
+        self.concur_p = self.bfc(a, p).max(1)[0]
+        self.concur_n = self.bfc(a, n).max(1)[0]
+        loss = torch.mean(((self.concur_n - self.concur_p) + self.margin).clamp(min=0))
         return loss
 
     def test(self, a, p, n):
         self.eval()
-        self.dist_p = self.bfc(a, p).squeeze()
+        self.concur_p = self.bfc(a, p).max(1)[0]
         exp_a = a.unsqueeze(1).expand(a.size(0), n.size(1), a.size(1)).contiguous()
         exp_n = n.contiguous()
-        self.dist_n = self.bfc(exp_a, exp_n).squeeze()
+        self.concur_n = self.bfc(exp_a, exp_n).max(1)[0]
         self.train()
         return self.dist_p, self.dist_n
 
     def get_batch_accuracy(self):
-        return torch.sum(self.dist_p < self.dist_n).item() / self.dist_p.size(0)
+        return torch.sum(self.concur_p > self.concur_n).item() / self.dist_p.size(0)
 
 
 class AlexManager(object):
     def __init__(self, root, data_opts, freeze='part', val=True, batch=1, lr=1e-3, decay=0, margin=1.0,
-                 param_path=None, net='Triplet', weight='official', flip=True, matterport=False):
+                 param_path=None, net='Triplet', dim=1, weight='official', flip=True, matterport=False):
         if net == 'Bilinear':
-            self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze, pretrained=weight)).cuda()
+            self._net = torch.nn.DataParallel(BilinearTripletAlex(freeze=freeze, bi_out=dim, pretrained=weight)).cuda()
             self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
         elif net == 'BilinearConv5':
-            self._net = torch.nn.DataParallel(BilinearTripletAlexConv5(freeze=freeze, pretrained=weight)).cuda()
+            self._net = torch.nn.DataParallel(BilinearTripletAlexConv5(freeze=freeze, bi_out=dim, pretrained=weight)).cuda()
             self._criterion = BilinearTripletMarginLoss(bfc=self._net.module.bfc, margin=margin).cuda()
         elif net == 'Triplet':
             self._net = torch.nn.DataParallel(TripletAlexFC7(freeze=freeze, pretrained=weight)).cuda()
@@ -212,7 +212,7 @@ class AlexManager(object):
         self._stats = []
         self._solver = torch.optim.Adam(filter(lambda p: p.requires_grad, self._net.parameters()),
                                         lr=lr, weight_decay=decay)
-        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.2, verbose=True)
+        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.3, verbose=True)
 
         # Load data
         self.data_opts = data_opts
@@ -347,6 +347,7 @@ def get_alexnet(pretrained='official'):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--net', dest='net', type=str, default='Triplet', help='Choose the network.')
+    parser.add_argument('--dim', dest='dim', type=int, default=1, help='Define bilinear out dimension.')
     parser.add_argument('--weight', dest='weight', type=str, default='official', help='Choose pretrained model.')
     parser.add_argument('--param', dest='param', type=str, default=None, help='Initialize model parameters.')
     parser.add_argument('--version', dest='version', type=int, default=0, help='Dataset version.')
@@ -375,6 +376,8 @@ def main():
         raise AttributeError('--weight parameter must be \'official\' or \'places365\'')
     if args.version not in [0, 1, 2]:
         raise AttributeError('--version parameter must be in [0, 1, 2]')
+    if args.dim <= 0:
+        raise AttributeError('--lr parameter must > 0.')
     if args.lr <= 0:
         raise AttributeError('--lr parameter must > 0.')
     if args.decay < 0:
@@ -394,6 +397,7 @@ def main():
 
     print('====Exp details====')
     print('Net: {:s}'.format(args.net))
+    print('Bilinear out dimension: {:d}'.format(args.dim))
     print('Alexnet: ' + str(args.weight))
     print('Ver: {:d}'.format(args.version))
     print('Validation: ' + str(args.valid))
@@ -406,7 +410,7 @@ def main():
     print('Learning rate scheduler used!\n')
 
     cnn = AlexManager(root=root, data_opts=data_opts,
-                      net=args.net, weight=args.weight, freeze=args.freeze, param_path=args.param,
+                      net=args.net, dim=args.dim, weight=args.weight, freeze=args.freeze, param_path=args.param,
                       margin=args.margin, lr=args.lr, decay=args.decay, batch=args.batch, val=args.valid)
     cnn.train(epoch=args.epoch, verbose=args.verbose)
     cnn.test()
