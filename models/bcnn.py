@@ -157,17 +157,17 @@ class BilinearTripletMarginLoss(torch.nn.Module):
         self.dist_n = None
 
     def forward(self, a, p, n):
-        self.dist_p = self.bfc(a, p).max(1)[0]
-        self.dist_n = self.bfc(a, n).max(1)[0]
+        self.dist_p = self.bfc(a, p).min(1)[0]
+        self.dist_n = self.bfc(a, n).min(1)[0]
         loss = torch.mean(((self.dist_p - self.dist_n) + self.margin).clamp(min=0))
         return loss
 
     def test(self, a, p, n):
         self.eval()
-        self.dist_p = self.bfc(a, p).max(1)[0]
+        self.dist_p = self.bfc(a, p).min(1)[0]
         exp_a = a.unsqueeze(1).expand(a.size(0), n.size(1), a.size(1)).contiguous()
         exp_n = n.contiguous()
-        self.dist_n = self.bfc(exp_a, exp_n).max(2)[0]
+        self.dist_n = self.bfc(exp_a, exp_n).min(2)[0]
         self.train()
         return self.dist_p, self.dist_n
 
