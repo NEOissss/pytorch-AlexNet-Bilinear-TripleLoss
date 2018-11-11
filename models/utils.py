@@ -11,11 +11,13 @@ import numpy as np
 def analyze_log(filename):
     with open(filename, 'r') as fp:
         content = fp.read()
-        match_param = re.search(r'parameters\ssaved:.+', content)
+        match_n_param = re.search(r'Net\smodel\sparameters\ssaved:.+', content)
+        match_m_param = re.search(r'Metric\smodel\sparameters\ssaved:.+', content)
         match_train = re.search(r'train_stats_\d+\.npy', content)
         match_test = re.search(r'test_result_\d+\.npy', content)
         match_test_accu = re.search(r'Test\saccuracy:.+', content)
         match_net = re.search(r'Net:.+', content)
+        match_metric = re.search(r'Metric:.+', content)
         match_ver = re.search(r'Ver:.+', content)
         match_weight = re.search(r'Alexnet:.+', content)
         match_margin = re.search(r'Margin:\s\d+\.\d+', content)
@@ -28,6 +30,7 @@ def analyze_log(filename):
 
     try:
         res = {'net': match_net.group().split()[-1],
+               'metric': match_metric.group().split()[-1],
                'dim': match_dim.group().split()[-1] if match_dim else '1',
                'weight': match_weight.group().split()[-1] if match_weight else 'official',
                'ver': match_ver.group().split()[-1] if match_ver else '0',
@@ -38,7 +41,8 @@ def analyze_log(filename):
                'lr': match_lr.group().split()[-1],
                'decay': match_decay.group().split()[-1] if match_decay else 0,
                'test_accu': match_test_accu.group().split()[-1][:5],
-               'param': match_param.group().split()[-1] if match_param else None,
+               'n_param': match_n_param.group().split()[-1] if match_n_param else None,
+               'm_param': match_n_param.group().split()[-1] if match_m_param else None,
                'train': match_train.group() if match_train else None,
                'test': match_test.group() if match_test else None
                }
@@ -56,9 +60,9 @@ def pack_results(path='./'):
             if not res:
                 print('Unknown log content: {:s}'.format(fname))
                 continue
-            # Version|Net|Dim|Weight|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
-            dir_path = 'V{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
-                        res['ver'], res['net'], res['dim'], res['weight'], res['freeze'], res['margin'],
+            # Version|Net|Metric|Dim|Weight|Freeze|Margin|Epoch|Batch|LR|Decay|Accuracy
+            dir_path = 'V{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:s}|{:.0e}|{:.0e}|{:s}'.format(
+                        res['ver'], res['net'], res['metric'], res['dim'], res['weight'], res['freeze'], res['margin'],
                         res['epoch'], res['batch'], float(res['lr']), float(res['decay']), res['test_accu'])
             if not os.path.exists(dir_path):
                 os.mkdir(dir_path)
@@ -68,8 +72,10 @@ def pack_results(path='./'):
                 continue
 
             shutil.move(fname, '{:s}/{:s}'.format(dir_path, fname))
-            if res['param'] and os.path.exists(res['param']):
-                shutil.move(res['param'], '{:s}/{:s}'.format(dir_path, res['param']))
+            if res['n_param'] and os.path.exists(res['n_param']):
+                shutil.move(res['n_param'], '{:s}/{:s}'.format(dir_path, res['n_param']))
+            if res['m_param'] and os.path.exists(res['m_param']):
+                shutil.move(res['m_param'], '{:s}/{:s}'.format(dir_path, res['m_param']))
             if res['train'] and os.path.exists(res['train']):
                 shutil.move(res['train'], '{:s}/{:s}'.format(dir_path, res['train']))
             if res['test'] and os.path.exists(res['test']):
@@ -95,8 +101,8 @@ def plot_stats(log_lists):
             res = analyze_log(i)
             y = res['train']
 
-        x = '{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:.0e}-{:.0e}'.format(
-            res['net'], res['dim'], res['weight'], res['freeze'], res['margin'],
+        x = '{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:s}-{:.0e}-{:.0e}'.format(
+            res['net'], res['metric'], res['dim'], res['weight'], res['freeze'], res['margin'],
             res['batch'], float(res['lr']), float(res['decay']))
         labels.append(x)
         stats.append(np.load(y))
@@ -181,7 +187,7 @@ def plot_distance(filename):
     plt.savefig('{:s}/{:s}'.format(path, name))
 
 
-def plot_distance_improvement(filename, ver=0, net='Triplet', weight='official'):
+def plot_distance_improvement(filename, ver=0, net='AlexFC7', weight='official'):
     if os.path.isdir(filename):
         metric = None
         path = filename

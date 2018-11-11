@@ -4,12 +4,11 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from SUN360Dataset import Sun360Dataset
-from cnn import get_alexnet
 
 
-class MetricTrplet(torch.nn.Module):
+class MetricTriplet(torch.nn.Module):
     def __init__(self):
-        torch.nn.Module.__init__(self)
+        super(MetricTriplet, self).__init__()
         weight = torch.zeros(1, 4096, requires_grad=True)
         bias = torch.zeros(4096, requires_grad=True)
         self.weight = torch.nn.Parameter(weight)
@@ -23,7 +22,7 @@ class MetricTrplet(torch.nn.Module):
 
 class FullMetricTriplet(torch.nn.Module):
     def __init__(self):
-        torch.nn.Module.__init__(self)
+        super(FullMetricTriplet, self).__init__()
         weight = torch.zeros(4096, 4096, requires_grad=True)
         bias = torch.zeros(4096, requires_grad=True)
         self.weight = torch.nn.Parameter(weight)
@@ -46,6 +45,9 @@ class MetricTripletManager(object):
             raise ValueError('Unavailable net option.')
         # print(self._net)
 
+
+        self.feature =
+
         # define the total #choice
         if matterport:
             self._n = 4
@@ -62,7 +64,7 @@ class MetricTripletManager(object):
         self._stats = []
         self._criterion = torch.nn.TripletMarginLoss(margin=margin).cuda()
         self._solver = torch.optim.Adam(self._net.parameters(), lr=lr, weight_decay=decay).cuda()
-        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', factor=0.2, verbose=True)
+        self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', verbose=True)
 
         # Load data
         self.data_opts = data_opts
