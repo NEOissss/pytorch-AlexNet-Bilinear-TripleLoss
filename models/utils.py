@@ -42,7 +42,7 @@ def analyze_log(filename):
                'decay': match_decay.group().split()[-1] if match_decay else 0,
                'test_accu': match_test_accu.group().split()[-1][:5],
                'n_param': match_n_param.group().split()[-1] if match_n_param else None,
-               'm_param': match_n_param.group().split()[-1] if match_m_param else None,
+               'm_param': match_m_param.group().split()[-1] if match_m_param else None,
                'train': match_train.group() if match_train else None,
                'test': match_test.group() if match_test else None
                }
