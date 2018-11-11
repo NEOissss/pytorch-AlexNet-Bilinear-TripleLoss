@@ -33,4 +33,4 @@ freeze='--no-freeze'
 valid='--valid'
 #valid='--no-valid'
 
-python3 models/cnn.py ${net} ${metric} ${dim} ${weight} ${n_param} ${m_param} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${freeze} ${valid}
+python3 models/bcnn.py ${net} ${metric} ${dim} ${weight} ${n_param} ${m_param} ${lr} ${decay} ${margin} ${epoch} ${batch} ${version} ${verbose} ${freeze} ${valid}

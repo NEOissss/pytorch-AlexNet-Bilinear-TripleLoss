@@ -30,7 +30,7 @@ def get_alexnet(pretrained='official'):
 class AlexFC7(torch.nn.Module):
     def __init__(self, freeze=False, pretrained='official'):
         super(AlexFC7, self).__init__()
-        alexnet = self.get_alexnet(pretrained=pretrained)
+        alexnet = get_alexnet(pretrained=pretrained)
         self.features = alexnet.features
         self.fc = alexnet.classifier[:-2]
         if freeze:
