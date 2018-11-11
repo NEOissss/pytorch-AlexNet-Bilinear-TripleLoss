@@ -4,8 +4,9 @@ Usage:
 
 start_cd.sh:  create dataset
 start_bl.sh:  calculate l2 baseline
-start_cnn.sh: run triplet network
-start_ml.sh:  run metric learning
+start_cnn.sh: run triplet network [deprecated]
+start_bcnn.sh: run the model
+
 
 python3 models/utils.py pack: analyze log, pack result and plot scatters.
 python3 models/utils.py plot [dirs...]: plots training stats.
