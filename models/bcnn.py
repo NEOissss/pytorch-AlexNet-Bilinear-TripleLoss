@@ -120,7 +120,7 @@ class BilinearMetric(torch.nn.Module):
         torch.nn.init.constant_(self.bfc.bias.data, val=0)
 
     def forward(self, x):
-        return self.bfc(self.fc(x))
+        return self.fc(x)
 
 
 # Loss Function
