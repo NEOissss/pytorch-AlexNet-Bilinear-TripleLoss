@@ -199,7 +199,7 @@ class NetworkManager(object):
             self._criterion = TripletMarginLoss(margin=margin).cuda()
         elif metric == 'Bilinear':
             self._metric = torch.nn.DataParallel(BilinearMetric(in_dim=net_out_dim, bi_out=dim)).cuda()
-            self._criterion = BilinearTripletMarginLoss(bfc=self._metric.bfc, margin=margin).cuda()
+            self._criterion = BilinearTripletMarginLoss(bfc=self._metric.module.bfc, margin=margin).cuda()
         else:
             raise ValueError('Unavailable metric option.')
         # print(self._net)
