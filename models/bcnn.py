@@ -374,7 +374,7 @@ def main():
     if args.net not in ['AlexFC7', 'AlexConv5']:
         raise AttributeError('--net parameter must be \'AlexFC7\' or \'AlexConv5\'.')
     if args.metric not in ['None', 'Diagonal', 'Symmetric', 'Bilinear']:
-        raise AttributeError('--metric parameter must be \'None\', \'Diagonal\', \'Symmetric\', \'Bilinear\''.)
+        raise AttributeError('--metric parameter must be \'None\', \'Diagonal\', \'Symmetric\', \'Bilinear\'.')
     if args.weight not in ['official', 'places365']:
         raise AttributeError('--weight parameter must be \'official\' or \'places365\'')
     if args.version not in [0, 1, 2]:
