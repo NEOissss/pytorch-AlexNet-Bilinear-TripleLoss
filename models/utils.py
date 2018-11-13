@@ -18,7 +18,7 @@ def analyze_log(filename):
         match_test_accu = re.search(r'Test\saccuracy:.+', content)
         match_net = re.search(r'Net:.+', content)
         match_metric = re.search(r'Metric:.+', content)
-        match_ver = re.search(r'Ver:.+', content)
+        match_ver = re.search(r'Benchmark\sver:.+', content)
         match_weight = re.search(r'Alexnet:.+', content)
         match_margin = re.search(r'Margin:\s\d+\.\d+', content)
         match_freeze = re.search(r'Freeze\smode:.+', content)

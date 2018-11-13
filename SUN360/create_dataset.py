@@ -193,7 +193,7 @@ def main():
     print('Test set part A size: ', len(test_part_a))
     print('Test set part B size: ', len(test_part_b))
 
-    generate_dataset(train_part_a, train_part_a)
+    generate_dataset(train_part_a, train_part_b)
     generate_dataset(test_part_a, test_part_b, False)
 
 
