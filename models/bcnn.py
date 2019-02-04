@@ -92,7 +92,7 @@ class AlexConv5(torch.nn.Module):
             param.requires_grad = False
 
 
-class ResnetFC:
+class ResnetFC(torch.nn.Module):
     def __init__(self, freeze=False, pretrained='official', net_type='Resnet34'):
         super(ResnetFC, self).__init__()
         self.resnet = get_resnet(pretrained=pretrained, resnet=net_type)
