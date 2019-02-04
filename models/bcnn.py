@@ -27,6 +27,22 @@ def get_alexnet(pretrained='official'):
         raise ValueError('Unknown pretrained model!')
 
 
+def get_resnet(pretrained='official', resnet='Resnet34'):
+    if pretrained == 'official':
+        if resnet == 'Resnet18':
+            return models.resnet18(pretrained=True)
+        elif resnet == 'Resnet34':
+            return models.resnet34(pretrained=True)
+        elif resnet == 'Resnet50':
+            return models.resnet50(pretrained=True)
+        elif resnet == 'Resnet101':
+            return models.resnet101(pretrained=True)
+        elif resnet == 'Resnet152':
+            return models.resnet152(pretrained=True)
+        else:
+            raise ValueError('Unknown ResNet model!')
+
+
 class AlexFC7(torch.nn.Module):
     def __init__(self, freeze=False, pretrained='official'):
         super(AlexFC7, self).__init__()
@@ -73,6 +89,26 @@ class AlexConv5(torch.nn.Module):
 
     def _freeze(self):
         for param in self.features.parameters():
+            param.requires_grad = False
+
+
+class ResnetFC:
+    def __init__(self, freeze=False, pretrained='official', net_type='Resnet34'):
+        super(ResnetFC, self).__init__()
+        self.resnet = get_resnet(pretrained=pretrained, resnet=net_type)
+        if freeze:
+            self._freeze()
+
+    def forward(self, x):
+        x = x.float()
+        n = x.size()[0]
+        assert x.size() == (n, 3, 224, 224)
+        x = self.resnet(x)
+        assert x.size() == (n, 1000)
+        return x
+
+    def _freeze(self):
+        for param in self.resnet.parameters():
             param.requires_grad = False
 
 
@@ -185,6 +221,9 @@ class NetworkManager(object):
         elif net == 'AlexConv5':
             self._net = torch.nn.DataParallel(AlexConv5(freeze=freeze, pretrained=weight)).cuda()
             net_out_dim = 256
+        elif 'Resnet' in net:
+            self._net = torch.nn.DataParallel(ResnetFC(freeze=freeze, pretrained=weight, net_type=net)).cuda()
+            net_out_dim = 1000
         else:
             raise ValueError('Unavailable metric option.')
 
@@ -226,8 +265,14 @@ class NetworkManager(object):
         self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self._solver, mode='max', verbose=True)
 
         # Load data
+        if 'Alex' in net:
+            img_size = 227
+        elif 'Resnet' in net:
+            img_size = 224
+        else:
+            raise ValueError('Unknown model!')
         self.data_opts = data_opts
-        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root)
+        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root, size=img_size)
 
     def train(self, epoch=1, verbose=None):
         """Train the network."""
@@ -303,7 +348,7 @@ class NetworkManager(object):
         else:
             return num_correct/num_total
 
-    def _data_loader(self, root):
+    def _data_loader(self, root, size=227):
         train_data = self.data_opts['train']['set']
         test_data = self.data_opts['test']['set']
         val_data = self.data_opts['val']['set']
@@ -313,9 +358,9 @@ class NetworkManager(object):
         ver = self.data_opts['ver']
         print('Train dataset: {:s}{:s}, test dataset: {:s}{:s}, val dataset: {:s}{:s}'
               .format(train_data, str(train_cut), test_data, str(test_cut), val_data, str(val_cut)))
-        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, cut=train_cut, version=ver)
-        test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, version=ver)
-        val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, version=ver)
+        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, cut=train_cut, version=ver, resize=size)
+        test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, version=ver, resize=size)
+        val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, version=ver, resize=size)
         train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
         test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch//4)
         val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch//4)
@@ -371,8 +416,8 @@ def main():
 
     args = parser.parse_args()
 
-    if args.net not in ['AlexFC7', 'AlexConv5']:
-        raise AttributeError('--net parameter must be \'AlexFC7\' or \'AlexConv5\'.')
+    if args.net not in ['AlexFC7', 'AlexConv5', 'Resnet18', 'Resnet34', 'Resnet50', 'Resnet101', 'Resnet152']:
+        raise AttributeError('--net parameter must be \'AlexFC7\', \'AlexConv5\' or \'Resnet###\' ')
     if args.metric not in ['None', 'Diagonal', 'Symmetric', 'Bilinear']:
         raise AttributeError('--metric parameter must be \'None\', \'Diagonal\', \'Symmetric\', \'Bilinear\'.')
     if args.weight not in ['official', 'places365']:

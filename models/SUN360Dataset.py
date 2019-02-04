@@ -15,7 +15,7 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class Sun360Dataset(Dataset):
-    def __init__(self, root, train=True, dataset='train', version=0, cut=None, opt='pt'):
+    def __init__(self, root, train=True, dataset='train', version=0, cut=None, opt='pt', resize=227):
         super(Sun360Dataset, self).__init__()
         self.root = root
         self.train = train
@@ -24,7 +24,7 @@ class Sun360Dataset(Dataset):
         self.opt = opt
 
         self._param_check()
-        self.tf = Compose([Resize(227), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        self.tf = Compose([Resize(resize), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
         self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt)
         self.data_path = '{:s}/{:s}_v{:d}'.format(self.pt_path, self.dataset, self.ver)
