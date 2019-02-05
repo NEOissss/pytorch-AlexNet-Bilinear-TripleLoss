@@ -92,7 +92,7 @@ class Sun360Dataset(Dataset):
             task_path += '_v{:d}/'.format(self.ver)
 
         for i in range(0, self.len):
-            tensor = torch.zeros(11, 3, 227, 227)
+            tensor = torch.zeros(11, 3, self.size, self.size)
             file_path = '{:s}/{:s}.pt'.format(self.data_path, self.data[i])
             with open(self.root + task_path + self.data[i] + '.json', 'r') as f:
                 names = json.load(f)
