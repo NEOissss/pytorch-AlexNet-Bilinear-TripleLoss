@@ -266,13 +266,13 @@ class NetworkManager(object):
 
         # Load data
         if 'Alex' in net:
-            img_size = 227
+            self.img_size = 227
         elif 'Resnet' in net:
-            img_size = 224
+            self.img_size = 224
         else:
             raise ValueError('Unknown model!')
         self.data_opts = data_opts
-        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root, size=img_size)
+        self.train_data_loader, self.test_data_loader, self.val_data_loader = self._data_loader(root=root, size=self.img_size)
 
     def train(self, epoch=1, verbose=None):
         """Train the network."""
@@ -283,7 +283,7 @@ class NetworkManager(object):
             print("\nEpoch: {:d}".format(t+1))
             iter_num = 0
             for data in iter(self.train_data_loader):
-                data = data.reshape(-1, 3, 227, 227)
+                data = data.reshape(-1, 3, self.img_size, self.img_size)
                 if self._flip:
                     idx = torch.randperm(data.size(0))[:data.size(0)//2]
                     data[idx] = data[idx].flip(3)
@@ -328,7 +328,7 @@ class NetworkManager(object):
         batch = self._batch // 4
 
         for i, data in enumerate(data_loader):
-            data = data.reshape(-1, 3, 227, 227)
+            data = data.reshape(-1, 3, self.img_size, self.img_size)
             feat = self._metric(self._net(data))
             feat = feat.reshape(feat.size(0)//(self._n+1), self._n+1, -1)
             dist_p, dist_n = self._criterion.test(feat[:, 0, :], feat[:, 1, :], feat[:, 2:, :])

@@ -42,7 +42,7 @@ class Sun360Dataset(Dataset):
     def __getitem__(self, idx):
         file_path = '{:s}/{:s}.pt'.format(self.data_path, self.data[idx])
         tensor = torch.load(file_path)
-        
+
         # Temporary choice
         if self.size != 227:
             tensor = tensor[:, :, 1:-2, 1:-2]
