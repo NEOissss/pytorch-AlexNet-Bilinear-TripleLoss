@@ -348,7 +348,7 @@ class NetworkManager(object):
         else:
             return num_correct/num_total
 
-    def _data_loader(self, root, size=227):
+    def _data_loader(self, root, size):
         train_data = self.data_opts['train']['set']
         test_data = self.data_opts['test']['set']
         val_data = self.data_opts['val']['set']
@@ -358,9 +358,9 @@ class NetworkManager(object):
         ver = self.data_opts['ver']
         print('Train dataset: {:s}{:s}, test dataset: {:s}{:s}, val dataset: {:s}{:s}'
               .format(train_data, str(train_cut), test_data, str(test_cut), val_data, str(val_cut)))
-        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, cut=train_cut, version=ver, resize=size)
-        test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, version=ver, resize=size)
-        val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, version=ver, resize=size)
+        train_dataset = Sun360Dataset(root=root, train=True, dataset=train_data, cut=train_cut, version=ver, size=size)
+        test_dataset = Sun360Dataset(root=root, train=False, dataset=test_data, cut=test_cut, version=ver, size=size)
+        val_dataset = Sun360Dataset(root=root, train=False, dataset=val_data, cut=val_cut, version=ver, size=size)
         train_data_loader = DataLoader(dataset=train_dataset, batch_size=self._batch, shuffle=True)
         test_data_loader = DataLoader(dataset=test_dataset, batch_size=self._batch//4)
         val_data_loader = DataLoader(dataset=val_dataset, batch_size=self._batch//4)

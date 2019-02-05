@@ -15,18 +15,19 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class Sun360Dataset(Dataset):
-    def __init__(self, root, train=True, dataset='train', version=0, cut=None, opt='pt', resize=227):
+    def __init__(self, root, train=True, dataset='train', version=0, cut=None, opt='pt', size=227):
         super(Sun360Dataset, self).__init__()
         self.root = root
         self.train = train
         self.dataset = dataset  # 'train', 'test'
         self.ver = version
         self.opt = opt
+        self.size = size
 
         self._param_check()
-        self.tf = Compose([Resize(resize), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        self.tf = Compose([Resize(self.size), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-        self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt)
+        self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + str(self.size))
         self.data_path = '{:s}/{:s}_v{:d}'.format(self.pt_path, self.dataset, self.ver)
         self.data, self.gt = self._load_data()
         if cut:
@@ -34,7 +35,7 @@ class Sun360Dataset(Dataset):
             self.gt = self.gt[cut[0]: cut[1]]
         self.len = len(self.data)
 
-        if self.opt == 'pt' and not self._file_check():
+        if 'pt' in self.opt and not self._file_check():
             self._file_create()
 
     def __getitem__(self, idx):
@@ -49,7 +50,7 @@ class Sun360Dataset(Dataset):
         return self.len
 
     def _param_check(self):
-        if self.opt not in ['pt', 'fc7']:
+        if self.opt not in ['pt224', 'pt227', 'fc7']:
             raise ValueError('Unavailable dataset option!')
         if self.dataset not in ['train', 'test']:
             raise ValueError('Unavailable dataset part!')
