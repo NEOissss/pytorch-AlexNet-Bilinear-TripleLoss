@@ -50,7 +50,7 @@ class Sun360Dataset(Dataset):
         return self.len
 
     def _param_check(self):
-        if self.opt not in ['pt224', 'pt227', 'fc7']:
+        if self.opt not in ['pt', 'fc7']:
             raise ValueError('Unavailable dataset option!')
         if self.dataset not in ['train', 'test']:
             raise ValueError('Unavailable dataset part!')
