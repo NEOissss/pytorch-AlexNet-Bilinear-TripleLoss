@@ -27,7 +27,8 @@ class Sun360Dataset(Dataset):
         self._param_check()
         self.tf = Compose([Resize(self.size), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-        self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + str(self.size))
+        # self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + str(self.size))
+        self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + '227')
         self.data_path = '{:s}/{:s}_v{:d}'.format(self.pt_path, self.dataset, self.ver)
         self.data, self.gt = self._load_data()
         if cut:
@@ -35,12 +36,17 @@ class Sun360Dataset(Dataset):
             self.gt = self.gt[cut[0]: cut[1]]
         self.len = len(self.data)
 
-        if 'pt' in self.opt and not self._file_check():
+        if self.opt == 'pt' and not self._file_check():
             self._file_create()
 
     def __getitem__(self, idx):
         file_path = '{:s}/{:s}.pt'.format(self.data_path, self.data[idx])
         tensor = torch.load(file_path)
+        
+        # Temporary choice
+        if self.size != 227:
+            tensor = tensor[:, :, 1:-2, 1:-2]
+
         if self.train:
             return tensor[[0, 1, randint(2, 10)]]
         else:
@@ -50,7 +56,7 @@ class Sun360Dataset(Dataset):
         return self.len
 
     def _param_check(self):
-        if self.opt not in ['pt', 'fc7']:
+        if self.opt != 'pt':
             raise ValueError('Unavailable dataset option!')
         if self.dataset not in ['train', 'test']:
             raise ValueError('Unavailable dataset part!')
