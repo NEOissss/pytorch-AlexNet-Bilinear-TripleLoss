@@ -114,6 +114,7 @@ class ResnetFC(torch.nn.Module):
         n = x.size()[0]
         assert x.size() == (n, 3, 224, 224)
         x = self.resnet(x)
+        x = x.squeeze_(2).squeeze_(2)
         assert x.size() == (n, 512) or x.size() == (n, 2048)
         return x
 
