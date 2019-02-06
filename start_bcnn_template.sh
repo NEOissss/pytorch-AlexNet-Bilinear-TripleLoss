@@ -2,7 +2,7 @@
 
 net='--net AlexFC7'
 #net='--net AlexConv5'
-#net='--net Resnet34'
+#net='--net Resnet18'
 
 metric='--metric None'
 #metric='--metric Diagonal'

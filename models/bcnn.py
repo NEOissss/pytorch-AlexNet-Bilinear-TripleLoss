@@ -27,20 +27,29 @@ def get_alexnet(pretrained='official'):
         raise ValueError('Unknown pretrained model!')
 
 
-def get_resnet(pretrained='official', resnet='Resnet34'):
+def get_resnet(pretrained='official', resnet='Resnet18'):
     if pretrained == 'official':
         if resnet == 'Resnet18':
             return models.resnet18(pretrained=True)
-        elif resnet == 'Resnet34':
-            return models.resnet34(pretrained=True)
         elif resnet == 'Resnet50':
             return models.resnet50(pretrained=True)
-        elif resnet == 'Resnet101':
-            return models.resnet101(pretrained=True)
-        elif resnet == 'Resnet152':
-            return models.resnet152(pretrained=True)
         else:
             raise ValueError('Unknown ResNet model!')
+    elif pretrained == 'places365':
+        model_file = resnet.lower() + '_places365.pth.tar'
+        if not os.access(model_file, os.W_OK):
+            weight_url = 'http://places2.csail.mit.edu/models_places365/' + model_file
+            os.system('wget ' + weight_url)
+        if resnet == 'Resnet18':
+            model = models.resnet18(num_classes=365)
+        elif resnet == 'Resnet50':
+            model = models.resnet50(num_classes=365)
+        else:
+            raise ValueError('Unknown ResNet model!')
+        checkpoint = torch.load(model_file, map_location=lambda storage, loc: storage)
+        state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
+        model.load_state_dict(state_dict)
+        return model
 
 
 class AlexFC7(torch.nn.Module):
@@ -93,9 +102,10 @@ class AlexConv5(torch.nn.Module):
 
 
 class ResnetFC(torch.nn.Module):
-    def __init__(self, freeze=False, pretrained='official', net_type='Resnet34'):
+    def __init__(self, freeze=False, pretrained='official', net_type='Resnet18'):
         super(ResnetFC, self).__init__()
-        self.resnet = get_resnet(pretrained=pretrained, resnet=net_type)
+        net = get_resnet(pretrained=pretrained, resnet=net_type)
+        self.resnet = torch.nn.Sequential(*list(net.children())[:-1])
         if freeze:
             self._freeze()
 
@@ -104,7 +114,7 @@ class ResnetFC(torch.nn.Module):
         n = x.size()[0]
         assert x.size() == (n, 3, 224, 224)
         x = self.resnet(x)
-        assert x.size() == (n, 1000)
+        assert x.size() == (n, 512) or x.size() == (n, 2048)
         return x
 
     def _freeze(self):
@@ -223,7 +233,7 @@ class NetworkManager(object):
             net_out_dim = 256
         elif 'Resnet' in net:
             self._net = torch.nn.DataParallel(ResnetFC(freeze=freeze, pretrained=weight, net_type=net)).cuda()
-            net_out_dim = 1000
+            net_out_dim = 512 if net == 'Resnet18' else 2048
         else:
             raise ValueError('Unavailable metric option.')
 
@@ -416,7 +426,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.net not in ['AlexFC7', 'AlexConv5', 'Resnet18', 'Resnet34', 'Resnet50', 'Resnet101', 'Resnet152']:
+    if args.net not in ['AlexFC7', 'AlexConv5', 'Resnet18', 'Resnet50']:
         raise AttributeError('--net parameter must be \'AlexFC7\', \'AlexConv5\' or \'Resnet###\' ')
     if args.metric not in ['None', 'Diagonal', 'Symmetric', 'Bilinear']:
         raise AttributeError('--metric parameter must be \'None\', \'Diagonal\', \'Symmetric\', \'Bilinear\'.')
