@@ -445,8 +445,8 @@ def main():
         raise AttributeError('--margin parameter must > 0.')
     if args.batch <= 0:
         raise AttributeError('--batch parameter must > 0.')
-    if args.epoch <= 0:
-        raise AttributeError('--epoch parameter must > 0.')
+    if args.epoch < 0:
+        raise AttributeError('--epoch parameter must >= 0.')
 
     root = '/mnt/nfs/scratch1/gluo/SUN360/HalfHalf/'
     data_opts = {'train': {'set': 'train', 'cut': [0, 8000]},
