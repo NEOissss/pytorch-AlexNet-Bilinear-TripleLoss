@@ -27,8 +27,8 @@ class Sun360Dataset(Dataset):
         self._param_check()
         self.tf = Compose([Resize(self.size), ToTensor(), Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-        self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + str(self.size))
-        # self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + '227')
+        # self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + str(self.size))
+        self.pt_path = '{:s}/IMGs_{:s}'.format(self.root, self.opt + '227')
         self.data_path = '{:s}/{:s}_v{:d}'.format(self.pt_path, self.dataset, self.ver)
         self.data, self.gt = self._load_data()
         if cut:
@@ -44,8 +44,8 @@ class Sun360Dataset(Dataset):
         tensor = torch.load(file_path)
 
         # Temporary choice
-        # if self.size != 227:
-        #     tensor = tensor[:, :, 1:-2, 1:-2]
+        if self.size != 227:
+            tensor = tensor[:, :, 1:-2, 1:-2]
 
         if self.train:
             return tensor[[0, 1, randint(2, 10)]]
